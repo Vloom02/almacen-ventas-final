@@ -2,8 +2,12 @@ node_modules
 dist
 .env
 .env.local
+.env.production
 *.log
 .DS_Store
-android/app/build
-android/.gradle
-ios/App/Pods
+# Proyectos nativos: se regeneran con `npx cap add android/ios` (no se versionan).
+android
+ios
+coverage
+*.keystore
+*.jks
