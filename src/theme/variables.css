@@ -1,0 +1,179 @@
+/* ── Google Font: Inter ─────────────────────────────────────────────────────── */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+/* ── Design tokens ────────────────────────────────────────────────────────────
+   Paleta: verde esmeralda como color de marca (igual que Stockly)
+   Spacing: escala 4px
+   Todo centralizado — cambiar un color = editar una línea
+*/
+:root {
+  /* ── Brand: Emerald ─────────────────────────────── */
+  --emerald-50:  #f5f3ff;
+  --emerald-100: #ede9fe;
+  --emerald-200: #ddd6fe;
+  --emerald-300: #c4b5fd;
+  --emerald-400: #a78bfa;
+  --emerald-500: #8b5cf6;
+  --emerald-600: #7c3aed;
+  --emerald-700: #6d28d9;
+  --emerald-800: #5b21b6;
+  --emerald-900: #4c1d95;
+
+  /* ── Slate (grays) ──────────────────────────────── */
+  --slate-50:  #f8fafc;
+  --slate-100: #f1f5f9;
+  --slate-200: #e2e8f0;
+  --slate-300: #cbd5e1;
+  --slate-400: #94a3b8;
+  --slate-500: #64748b;
+  --slate-600: #475569;
+  --slate-700: #334155;
+  --slate-800: #1e293b;
+  --slate-900: #0f172a;
+
+  /* ── Semantic colors ────────────────────────────── */
+  --color-primary:      var(--emerald-500);
+  --color-primary-dark: var(--emerald-600);
+  --color-primary-bg:   var(--emerald-50);
+  --color-primary-border: var(--emerald-200);
+
+  --color-danger:       #ef4444;
+  --color-danger-dark:  #dc2626;
+  --color-danger-bg:    #fef2f2;
+  --color-danger-border:#fecaca;
+
+  --color-warning:      #f59e0b;
+  --color-warning-dark: #d97706;
+  --color-warning-bg:   #fffbeb;
+  --color-warning-border:#fde68a;
+
+  --color-info:         #3b82f6;
+  --color-info-dark:    #2563eb;
+  --color-info-bg:      #eff6ff;
+  --color-info-border:  #bfdbfe;
+
+  --color-accent:       #8b5cf6;
+  --color-accent-bg:    #f5f3ff;
+  --color-accent-border:#ddd6fe;
+
+  /* ── Surface / Background ───────────────────────── */
+  --bg:          var(--slate-100);
+  --surface:     #ffffff;
+  --surface-2:   var(--slate-50);
+  --surface-3:   var(--slate-200);
+  --border:      var(--slate-200);
+  --border-strong: var(--slate-300);
+
+  /* ── Text ───────────────────────────────────────── */
+  --text:        var(--slate-900);
+  --text-2:      var(--slate-500);
+  --text-3:      var(--slate-400);
+  --text-invert: #ffffff;
+
+  /* ── Spacing (escala 4px) ───────────────────────── */
+  --space-1:  4px;
+  --space-2:  8px;
+  --space-3:  12px;
+  --space-4:  16px;
+  --space-5:  20px;
+  --space-6:  24px;
+  --space-8:  32px;
+  --space-10: 40px;
+  --space-12: 48px;
+
+  /* ── Radius ─────────────────────────────────────── */
+  --radius-sm: 6px;
+  --radius:    10px;
+  --radius-lg: 14px;
+  --radius-xl: 20px;
+  --radius-full: 9999px;
+
+  /* ── Shadows ────────────────────────────────────── */
+  --shadow-sm: 0 1px 2px rgba(0,0,0,.06);
+  --shadow:    0 2px 8px rgba(0,0,0,.08);
+  --shadow-md: 0 4px 16px rgba(0,0,0,.10);
+  --shadow-lg: 0 8px 32px rgba(0,0,0,.12);
+
+  /* ── Typography ─────────────────────────────────── */
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-mono: 'Courier New', Courier, monospace;
+
+  /* ── Transitions ────────────────────────────────── */
+  --transition-fast: 120ms ease;
+  --transition:      200ms ease;
+  --transition-slow: 350ms ease;
+
+  /* ── Nav ────────────────────────────────────────── */
+  --nav-h: 58px;
+
+  /* ── Ionic overrides ────────────────────────────── */
+  --ion-font-family: var(--font-sans);
+  --ion-background-color: var(--bg);
+  --ion-text-color: var(--text);
+  --ion-color-primary: var(--color-primary);
+  --ion-color-primary-shade: var(--color-primary-dark);
+  --ion-color-success: var(--color-primary);
+  --ion-color-danger: var(--color-danger);
+  --ion-color-warning: var(--color-warning);
+}
+
+/* ── Dark mode ──────────────────────────────────────────────────────────────── */
+body.dark {
+  --bg:          #0b1120;
+  --surface:     #111827;
+  --surface-2:   #1a2236;
+  --surface-3:   #1f2d42;
+  --border:      #1e3a5f;
+  --border-strong: #2a4a70;
+
+  --text:        #e2e8f0;
+  --text-2:      #94a3b8;
+  --text-3:      #64748b;
+
+  --color-primary-bg:    #2e1065;
+  --color-primary-border:#5b21b6;
+  --color-danger-bg:     #2d0a0a;
+  --color-danger-border: #7f1d1d;
+  --color-warning-bg:    #2d1a00;
+  --color-warning-border:#78350f;
+  --color-info-bg:       #0a1e3d;
+  --color-info-border:   #1e3a5f;
+  --color-accent-bg:     #1e1040;
+  --color-accent-border: #4c1d95;
+
+  --ion-background-color: var(--bg);
+  --ion-text-color: var(--text);
+}
+
+/* ── Base styles ─────────────────────────────────────────────────────────────── */
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+body {
+  font-family: var(--font-sans);
+  background: var(--bg);
+  color: var(--text);
+  font-size: 15px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── Animations ─────────────────────────────────────────────────────────────── */
+@keyframes fadeIn   { from { opacity:0 } to { opacity:1 } }
+@keyframes slideUp  { from { opacity:0; transform:translateY(12px) } to { opacity:1; transform:translateY(0) } }
+@keyframes scaleIn  { from { opacity:0; transform:scale(.96) } to { opacity:1; transform:scale(1) } }
+@keyframes shimmer  { 0%,100% { opacity:1 } 50% { opacity:.45 } }
+@keyframes slideModal { from { transform:translateY(100%) } to { transform:translateY(0) } }
+@keyframes spin     { from { transform:rotate(0deg) } to { transform:rotate(360deg) } }
+@keyframes pulse    { 0%,100% { opacity:1 } 50% { opacity:.5 } }
+
+.anim-fadeIn  { animation: fadeIn  var(--transition-slow) ease both; }
+.anim-slideUp { animation: slideUp var(--transition-slow) ease both; }
+.anim-scaleIn { animation: scaleIn var(--transition-slow) ease both; }
+
+/* ── Micro-interaction: press scale ─────────────────────────────────────────── */
+.pressable:active { transform: scale(0.97); transition: transform 80ms ease; }
+
+/* ── Scrollbar ───────────────────────────────────────────────────────────────── */
+::-webkit-scrollbar { width:6px; height:6px; }
+::-webkit-scrollbar-track { background:transparent; }
+::-webkit-scrollbar-thumb { background:var(--border-strong); border-radius:var(--radius-full); }

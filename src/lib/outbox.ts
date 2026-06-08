@@ -1,0 +1,123 @@
+// ═══════════════════════════════════════════════════════════════════════════
+// Outbox offline-first con FEFO.
+// La venta offline se guarda local y al reconectar recalcula FEFO contra el
+// stock MÁS RECIENTE de la nube (aplica delta, no pisa cantidad vieja).
+// ═══════════════════════════════════════════════════════════════════════════
+import { supabase } from './supabase';
+import { OutboxItem, CartItem } from '../types';
+import { payloadVenta } from './ventas-engine';
+
+const DB_NAME = 'ventas-db';
+const DB_VER  = 1;
+let db: IDBDatabase | null = null;
+
+export function openDB(): Promise<IDBDatabase> {
+  return new Promise((res, rej) => {
+    if (db) { res(db); return; }
+    const r = indexedDB.open(DB_NAME, DB_VER);
+    r.onupgradeneeded = (e) => {
+      const d = (e.target as IDBOpenDBRequest).result;
+      if (!d.objectStoreNames.contains('productos')) d.createObjectStore('productos', { keyPath: 'id' });
+      if (!d.objectStoreNames.contains('lotes'))     d.createObjectStore('lotes',     { keyPath: 'id' });
+      if (!d.objectStoreNames.contains('ventas'))    d.createObjectStore('ventas',    { keyPath: 'id' });
+      if (!d.objectStoreNames.contains('deudas'))    d.createObjectStore('deudas',    { keyPath: 'id' });
+      if (!d.objectStoreNames.contains('settings'))  d.createObjectStore('settings',  { keyPath: 'k' });
+      if (!d.objectStoreNames.contains('outbox'))    d.createObjectStore('outbox',    { keyPath: 'id', autoIncrement: true });
+    };
+    r.onsuccess = (e) => { db = (e.target as IDBOpenDBRequest).result; res(db!); };
+    r.onerror   = () => rej(r.error);
+  });
+}
+
+const tx = (s: string, m: IDBTransactionMode = 'readonly') => db!.transaction(s, m).objectStore(s);
+export const idbGetAll = <T,>(s: string): Promise<T[]> =>
+  new Promise((res, rej) => { const r = tx(s).getAll(); r.onsuccess = () => res(r.result as T[]); r.onerror = () => rej(r.error); });
+export const idbGet = <T,>(s: string, k: IDBValidKey): Promise<T|undefined> =>
+  new Promise((res, rej) => { const r = tx(s).get(k); r.onsuccess = () => res(r.result as T); r.onerror = () => rej(r.error); });
+export const idbPut = <T,>(s: string, o: T): Promise<void> =>
+  new Promise((res, rej) => { const r = tx(s,'readwrite').put(o); r.onsuccess = () => res(); r.onerror = () => rej(r.error); });
+export const idbAdd = <T,>(s: string, o: T): Promise<void> =>
+  new Promise((res, rej) => { const r = tx(s,'readwrite').add(o); r.onsuccess = () => res(); r.onerror = () => rej(r.error); });
+export const idbDelete = (s: string, k: IDBValidKey): Promise<void> =>
+  new Promise((res, rej) => { const r = tx(s,'readwrite').delete(k); r.onsuccess = () => res(); r.onerror = () => rej(r.error); });
+export const idbClear = (s: string): Promise<void> =>
+  new Promise((res, rej) => { const r = tx(s,'readwrite').clear(); r.onsuccess = () => res(); r.onerror = () => rej(r.error); });
+
+export async function enqueueOutbox(kind: OutboxItem['kind'], payload: unknown): Promise<void> {
+  await idbAdd('outbox', { kind, payload, createdAt: Date.now(), retries: 0 });
+}
+
+export interface OfflineVentaPayload {
+  ventaId: string;
+  comercioId: string;
+  sucursalId: string;
+  usuario: string | null;
+  metodoPago: string;
+  cliente: string;
+  fiado: boolean;
+  descuento: number;
+  total: number;
+  fecha: number;
+  cart: CartItem[];
+}
+
+// ─── Flush con guarda contra solapamiento ─────────────────────────────────────
+let flushing = false;
+
+export async function flushOutbox(): Promise<number> {
+  if (flushing || !navigator.onLine) return 0;
+  flushing = true;
+  let processed = 0;
+  try {
+    const items: OutboxItem[] = await idbGetAll('outbox');
+    items.sort((a, b) => a.createdAt - b.createdAt);
+    for (const item of items) {
+      try {
+        if (item.kind === 'venta') await syncVentaOffline(item.payload as OfflineVentaPayload);
+        await idbDelete('outbox', item.id!);
+        processed++;
+      } catch (err) {
+        const updated = { ...item, retries: item.retries + 1 };
+        if (updated.retries >= 5) { console.error('[outbox] descartado tras 5 intentos:', err); await idbDelete('outbox', item.id!); }
+        else await idbPut('outbox', updated);
+      }
+    }
+  } finally {
+    flushing = false;
+  }
+  return processed;
+}
+
+// ─── Sincronizar venta offline vía RPC atómica e idempotente ──────────────────
+// Reenvía la venta con su id fijo: la función registrar_venta calcula FEFO contra
+// el stock MÁS reciente con lock de filas, y si la venta ya se aplicó (id existe),
+// no la reprocesa. Reintentar es seguro: no duplica items ni descuenta de más.
+async function syncVentaOffline(p: OfflineVentaPayload): Promise<void> {
+  const { error } = await supabase.rpc('registrar_venta', {
+    p: payloadVenta(
+      {
+        comercioId: p.comercioId, sucursalId: p.sucursalId, usuario: p.usuario,
+        metodoPago: p.metodoPago, cliente: p.cliente, fiado: p.fiado,
+        descuento: p.descuento, cart: p.cart,
+      },
+      p.ventaId,
+      new Date(p.fecha).toISOString(),
+    ),
+  });
+  if (error) throw new Error(error.message);
+}
+
+// ─── Cache catálogo + lotes para vender offline ───────────────────────────────
+export async function cacheCatalogo(productos: unknown[], lotes: unknown[]): Promise<void> {
+  await idbClear('productos'); await idbClear('lotes');
+  for (const p of productos) await idbPut('productos', p);
+  for (const l of lotes)     await idbPut('lotes', l);
+}
+
+export async function getLocalSetting(k: string): Promise<string> {
+  const r = await idbGet<{ k: string; v: string }>('settings', k);
+  return r?.v ?? '';
+}
+export async function setLocalSetting(k: string, v: string): Promise<void> {
+  await idbPut('settings', { k, v });
+}
