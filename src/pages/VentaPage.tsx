@@ -10,7 +10,7 @@ import { useOwner } from '../context/OwnerContext';
 import { Button, Card, SyncBanner, EmptyState } from '../components/ui';
 import {
   ShoppingCartIcon, MagnifyingGlass, PlusIcon, MinusIcon, XMarkIcon,
-  TrashIcon, BanknotesIcon, CheckIcon, SunIcon, MoonIcon, LockClosedIcon,
+  TrashIcon, CheckIcon, SunIcon, MoonIcon, LockClosedIcon,
 } from '../components/ui/icons';
 import { Producto } from '../types';
 
@@ -22,7 +22,7 @@ const payOptions = [
 ];
 
 const VentaPage: React.FC = () => {
-  const { state, escanear, buscarPorNombre, agregarProducto, setQty, quitar, vaciar, confirmarVenta, sincronizar } = useVentas();
+  const { state, escanear, buscarPorNombre, agregarProducto, setQty, quitar, vaciar, confirmarVenta } = useVentas();
   const { sucursalActiva, sucursales, setSucursalActiva, comercio } = useAuth();
   const { isDark, toggleDark } = useTheme();
   const { isUnlocked, lock } = useOwner();

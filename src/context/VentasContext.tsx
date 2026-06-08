@@ -16,8 +16,8 @@ import {
 import { chequearVencimientos } from '../lib/vencimientos';
 import { Haptics, ImpactStyle } from '@capacitor/haptics';
 
-async function hapticOk()  { try { await Haptics.impact({ style: ImpactStyle.Medium }); } catch {} }
-async function hapticTap() { try { await Haptics.impact({ style: ImpactStyle.Light });  } catch {} }
+async function hapticOk()  { try { await Haptics.impact({ style: ImpactStyle.Medium }); } catch { /* no-op */ } }
+async function hapticTap() { try { await Haptics.impact({ style: ImpactStyle.Light });  } catch { /* no-op */ } }
 
 export const formatMoney = (n: number) =>
   '$' + Number(n).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
