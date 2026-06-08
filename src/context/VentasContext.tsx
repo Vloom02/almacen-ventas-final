@@ -215,6 +215,10 @@ export const VentasProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     const usuario  = miembro?.nombre ?? null;
     const subtotal = state.cart.reduce((s, c) => s + c.precio * c.qty, 0);
     const total    = Math.max(0, subtotal - opts.descuento);
+    // Un único ventaId para online y offline: si el online llega al server pero se
+    // pierde la respuesta, el reintento offline usa el MISMO id y registrar_venta lo
+    // detecta como duplicado (no vuelve a vender ni descontar). Cierra el bug F-A.
+    const ventaId  = uuid();
 
     if (navigator.onLine) {
       try {
@@ -222,7 +226,7 @@ export const VentasProvider: React.FC<{ children: ReactNode }> = ({ children }) 
         const res = await aplicarVentaOnline({
           comercioId: comercio.id, sucursalId: sucursalActiva.id, usuario,
           metodoPago: opts.metodoPago, cliente: opts.cliente, fiado: opts.fiado,
-          descuento: opts.descuento, cart: state.cart,
+          descuento: opts.descuento, cart: state.cart, ventaId,
         });
         vaciar(); hapticOk(); loadVentasHoy(); lotesCacheRef.current = {};
         const aviso = res.faltantes.length > 0
@@ -236,7 +240,6 @@ export const VentasProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     return saveOffline();
 
     async function saveOffline() {
-      const ventaId = uuid();
       const payload: OfflineVentaPayload = {
         ventaId, comercioId: comercio!.id, sucursalId: sucursalActiva!.id, usuario,
         metodoPago: opts.metodoPago, cliente: opts.cliente, fiado: opts.fiado,

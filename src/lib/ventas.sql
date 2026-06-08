@@ -60,13 +60,21 @@ create policy "acceso ventas propias" on ventas_ventas
   for all to authenticated using (comercio_id in (select comercios_del_usuario()))
   with check (comercio_id in (select comercios_del_usuario()));
 
+-- items/deudas: además, el venta_id debe pertenecer al MISMO comercio (evita
+-- inserts directos colgados de una venta ajena).
 create policy "acceso items propios" on ventas_items
   for all to authenticated using (comercio_id in (select comercios_del_usuario()))
-  with check (comercio_id in (select comercios_del_usuario()));
+  with check (
+    comercio_id in (select comercios_del_usuario())
+    and exists (select 1 from ventas_ventas v where v.id = ventas_items.venta_id and v.comercio_id = ventas_items.comercio_id)
+  );
 
 create policy "acceso deudas propias" on ventas_deudas
   for all to authenticated using (comercio_id in (select comercios_del_usuario()))
-  with check (comercio_id in (select comercios_del_usuario()));
+  with check (
+    comercio_id in (select comercios_del_usuario())
+    and (venta_id is null or exists (select 1 from ventas_ventas v where v.id = ventas_deudas.venta_id and v.comercio_id = ventas_deudas.comercio_id))
+  );
 
 -- ═══════════════════════════════════════════════════════════════════════════
 -- PIN del dueño (escenario cuenta compartida). Se guarda HASHEADO, nunca plano.
@@ -127,6 +135,10 @@ begin
   if v_comercio not in (select comercios_del_usuario()) then
     raise exception 'comercio no autorizado';
   end if;
+  -- La sucursal debe pertenecer al comercio (evita referencias cruzadas).
+  if not exists (select 1 from sucursales where id = v_sucursal and comercio_id = v_comercio) then
+    raise exception 'sucursal no pertenece al comercio';
+  end if;
   if exists (select 1 from ventas_ventas where id = v_id) then
     return jsonb_build_object('ok', true, 'duplicada', true, 'venta_id', v_id);
   end if;
@@ -146,6 +158,10 @@ begin
       v_restante  int := greatest(0, coalesce((v_item->>'cantidad')::int, 0));
       v_descontar int;
     begin
+      -- Cada producto del item debe ser del comercio (evita oráculo cross-tenant).
+      if v_pid is null or not exists (select 1 from productos where id = v_pid and comercio_id = v_comercio) then
+        raise exception 'producto del item no pertenece al comercio';
+      end if;
       v_total := v_total + v_precio * v_pedido;
       for v_lote in
         select id, cantidad from lotes
