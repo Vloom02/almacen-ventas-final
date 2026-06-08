@@ -137,6 +137,8 @@ export interface OutboxItem {
   payload: unknown;
   createdAt: number;
   retries: number;
+  bloqueado?: boolean;   // en cuarentena: falló mucho o error permanente. NO se borra.
+  error?: string;        // último error (diagnóstico/UI)
 }
 
 // ─── Misc ─────────────────────────────────────────────────────────────────────

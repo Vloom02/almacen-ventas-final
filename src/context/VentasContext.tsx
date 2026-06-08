@@ -11,7 +11,7 @@ import {
 } from '../lib/ventas-engine';
 import {
   openDB, enqueueOutbox, flushOutbox, cacheCatalogo, idbGetAll,
-  idbPut, OfflineVentaPayload,
+  idbPut, OfflineVentaPayload, reintentarBloqueados,
 } from '../lib/outbox';
 import { chequearVencimientos } from '../lib/vencimientos';
 import { Haptics, ImpactStyle } from '@capacitor/haptics';
@@ -254,7 +254,8 @@ export const VentasProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     }
   }, [comercio, sucursalActiva, miembro, state.cart, vaciar, loadVentasHoy]);
 
-  const sincronizar = useCallback(async () => { await doFlush(); }, [doFlush]);
+  // El sync manual saca de cuarentena los items bloqueados y reintenta.
+  const sincronizar = useCallback(async () => { await reintentarBloqueados(); await doFlush(); }, [doFlush]);
 
   return (
     <Ctx.Provider value={{ state, escanear, buscarPorNombre, agregarProducto, setQty, quitar, vaciar, confirmarVenta, sincronizar }}>

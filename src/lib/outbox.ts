@@ -63,6 +63,17 @@ export interface OfflineVentaPayload {
 
 // ─── Flush con guarda contra solapamiento ─────────────────────────────────────
 let flushing = false;
+// Tope ALTO: el transitorio se reintenta muchas veces; el permanente va a cuarentena ya.
+const MAX_INTENTOS = 50;
+
+// Errores que no se resuelven reintentando (validación/RLS/constraint) → cuarentena directa.
+function esErrorPermanente(msg?: string): boolean {
+  if (!msg) return false;
+  const m = msg.toLowerCase();
+  return ['no pertenece', 'no autorizado', 'permission denied', 'row-level security',
+          'violates', 'duplicate key', 'invalid input', 'constraint', 'inexistente']
+    .some(p => m.includes(p));
+}
 
 export async function flushOutbox(): Promise<number> {
   if (flushing || !navigator.onLine) return 0;
@@ -72,20 +83,37 @@ export async function flushOutbox(): Promise<number> {
     const items: OutboxItem[] = await idbGetAll('outbox');
     items.sort((a, b) => a.createdAt - b.createdAt);
     for (const item of items) {
+      if (item.bloqueado) continue; // en cuarentena: no se reintenta hasta acción manual
       try {
         if (item.kind === 'venta') await syncVentaOffline(item.payload as OfflineVentaPayload);
         await idbDelete('outbox', item.id!);
         processed++;
       } catch (err) {
-        const updated = { ...item, retries: item.retries + 1 };
-        if (updated.retries >= 5) { console.error('[outbox] descartado tras 5 intentos:', err); await idbDelete('outbox', item.id!); }
-        else await idbPut('outbox', updated);
+        // NUNCA se borra una venta no confirmada: se pone en cuarentena (se conserva).
+        const msg = err instanceof Error ? err.message : String(err);
+        const retries = item.retries + 1;
+        const bloqueado = esErrorPermanente(msg) || retries >= MAX_INTENTOS;
+        await idbPut('outbox', { ...item, retries, error: msg, bloqueado });
       }
     }
   } finally {
     flushing = false;
   }
   return processed;
+}
+
+// Cantidad de ventas en cuarentena (para mostrar en la UI).
+export async function contarBloqueados(): Promise<number> {
+  const items: OutboxItem[] = await idbGetAll('outbox');
+  return items.filter(i => i.bloqueado).length;
+}
+
+// Saca de cuarentena todas las ventas para reintentarlas.
+export async function reintentarBloqueados(): Promise<void> {
+  const items: OutboxItem[] = await idbGetAll('outbox');
+  for (const it of items) {
+    if (it.bloqueado) await idbPut('outbox', { ...it, bloqueado: false, retries: 0 });
+  }
 }
 
 // ─── Sincronizar venta offline vía RPC atómica e idempotente ──────────────────
