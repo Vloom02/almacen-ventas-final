@@ -67,7 +67,7 @@ let flushing = false;
 const MAX_INTENTOS = 50;
 
 // Errores que no se resuelven reintentando (validación/RLS/constraint) → cuarentena directa.
-function esErrorPermanente(msg?: string): boolean {
+export function esErrorPermanente(msg?: string): boolean {
   if (!msg) return false;
   const m = msg.toLowerCase();
   return ['no pertenece', 'no autorizado', 'permission denied', 'row-level security',
