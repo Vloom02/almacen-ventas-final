@@ -10,9 +10,13 @@ if (!SUPABASE_URL || !SUPABASE_ANON) {
   console.warn('⚠️  Supabase env vars no configuradas — sync deshabilitado');
 }
 
-export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON, {
-  auth: { persistSession: true, autoRefreshToken: true },
-});
+// Fallback a placeholders si faltan las env (tests/CI): así importar este módulo
+// nunca tira "supabaseUrl is required". El uso real se gatea con SUPABASE_ENABLED.
+export const supabase = createClient(
+  SUPABASE_URL || 'http://localhost:54321',
+  SUPABASE_ANON || 'placeholder-anon-key',
+  { auth: { persistSession: true, autoRefreshToken: true } },
+);
 
 export const SUPABASE_ENABLED = !!(SUPABASE_URL && SUPABASE_ANON);
 
