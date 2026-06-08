@@ -1,8 +1,8 @@
 // ═══════════════════════════════════════════════════════════════════════════
 // Historial de ventas — lee ventas_ventas con sus items. Filtros + export CSV.
 // ═══════════════════════════════════════════════════════════════════════════
-import React, { useEffect, useState, useMemo } from 'react';
-import { IonContent } from '@ionic/react';
+import React, { useEffect, useState, useMemo, useCallback } from 'react';
+import { IonContent, useIonViewWillEnter } from '@ionic/react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import { formatMoney } from '../context/VentasContext';
@@ -70,18 +70,20 @@ const HistorialPage: React.FC = () => {
   const [showFilters, setShowFilters] = useState(false);
   const [filters, setFilters] = useState<HistoryFilters>({ metodoPago: '', cliente: '', dateFrom: '', dateTo: '' });
 
-  useEffect(() => {
-    (async () => {
-      if (!comercio) { setLoading(false); return; }
-      setLoading(true);
-      const desde = new Date(); desde.setDate(desde.getDate() - 30);
-      const { data } = await supabase.from('ventas_ventas').select('*')
-        .eq('comercio_id', comercio.id).gte('fecha', desde.toISOString())
-        .order('fecha', { ascending: false });
-      setVentas((data ?? []) as VentaRow[]);
-      setLoading(false);
-    })();
+  const cargar = useCallback(async () => {
+    if (!comercio) { setLoading(false); return; }
+    setLoading(true);
+    const desde = new Date(); desde.setDate(desde.getDate() - 30);
+    const { data } = await supabase.from('ventas_ventas').select('*')
+      .eq('comercio_id', comercio.id).gte('fecha', desde.toISOString())
+      .order('fecha', { ascending: false });
+    setVentas((data ?? []) as VentaRow[]);
+    setLoading(false);
   }, [comercio]);
+
+  useEffect(() => { cargar(); }, [cargar]);
+  // Refrescar al volver a la pestaña (puede haber ventas nuevas).
+  useIonViewWillEnter(() => { cargar(); });
 
   const filtered = useMemo(() => ventas
     .filter(v => !filters.metodoPago || v.metodo_pago === filters.metodoPago)

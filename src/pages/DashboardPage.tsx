@@ -2,7 +2,7 @@
 // Dashboard de ventas del día. Lee ventas_ventas + ventas_items de la base.
 // ═══════════════════════════════════════════════════════════════════════════
 import React, { useEffect, useState, useMemo } from 'react';
-import { IonContent } from '@ionic/react';
+import { IonContent, useIonViewWillEnter } from '@ionic/react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import { formatMoney } from '../context/VentasContext';
@@ -58,6 +58,8 @@ const DashboardPage: React.FC = () => {
   };
 
   useEffect(() => { load(); }, [comercio, range]);
+  // Refrescar al volver a la pestaña (puede haber ventas nuevas).
+  useIonViewWillEnter(() => { load(); });
 
   const total = useMemo(() => ventas.reduce((s, v) => s + v.total, 0), [ventas]);
   const ticketProm = useMemo(() => ventas.length > 0 ? total / ventas.length : 0, [total, ventas.length]);

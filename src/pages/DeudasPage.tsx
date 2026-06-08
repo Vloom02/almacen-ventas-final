@@ -2,7 +2,7 @@
 // Deudas / Fiado — lee y actualiza ventas_deudas.
 // ═══════════════════════════════════════════════════════════════════════════
 import React, { useEffect, useState, useMemo } from 'react';
-import { IonContent, IonToast } from '@ionic/react';
+import { IonContent, IonToast, useIonViewWillEnter } from '@ionic/react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import { formatMoney } from '../context/VentasContext';
@@ -16,7 +16,7 @@ const DeudasPage: React.FC = () => {
   const [deudas, setDeudas] = useState<DeudaRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
-  const [toast, setToast] = useState({ show: false, msg: '' });
+  const [toast, setToast] = useState({ show: false, msg: '', color: 'success' as 'success' | 'danger' });
 
   const load = async () => {
     if (!comercio) { setLoading(false); return; }
@@ -29,12 +29,18 @@ const DeudasPage: React.FC = () => {
   };
 
   useEffect(() => { load(); }, [comercio]);
+  // Recargar cada vez que se entra a la pestaña (puede haber nuevos fiados desde Venta).
+  useIonViewWillEnter(() => { load(); });
 
   const marcarPagada = async (id: string, cliente: string) => {
     if (!confirm(`¿Marcar la deuda de "${cliente}" como pagada?`)) return;
-    await supabase.from('ventas_deudas').update({ pagada: true }).eq('id', id);
+    const { error } = await supabase.from('ventas_deudas').update({ pagada: true }).eq('id', id);
+    if (error) {
+      setToast({ show: true, msg: 'No se pudo marcar como pagada (¿sin conexión?)', color: 'danger' });
+      return;
+    }
     setDeudas(d => d.filter(x => x.id !== id));
-    setToast({ show: true, msg: `${cliente} pagó su deuda` });
+    setToast({ show: true, msg: `${cliente} pagó su deuda`, color: 'success' });
   };
 
   const filtered = useMemo(() => deudas.filter(d => !search || d.cliente.toLowerCase().includes(search.toLowerCase())), [deudas, search]);
@@ -81,7 +87,7 @@ const DeudasPage: React.FC = () => {
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   <span style={{ fontWeight: 800, fontSize: 16, color: 'var(--color-danger)', fontFamily: 'var(--font-mono)' }}>{formatMoney(d.monto)}</span>
-                  <button onClick={() => marcarPagada(d.id, d.cliente)} className="pressable" style={{ width: 36, height: 36, border: '1px solid var(--color-primary-border)', borderRadius: 'var(--radius)', background: 'var(--color-primary-bg)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <button aria-label={`Marcar deuda de ${d.cliente} como pagada`} onClick={() => marcarPagada(d.id, d.cliente)} className="pressable" style={{ width: 36, height: 36, border: '1px solid var(--color-primary-border)', borderRadius: 'var(--radius)', background: 'var(--color-primary-bg)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     <CheckIcon size={18} color="var(--color-primary-dark)" />
                   </button>
                 </div>
@@ -90,7 +96,7 @@ const DeudasPage: React.FC = () => {
           ))
         )}
       </div>
-      <IonToast isOpen={toast.show} onDidDismiss={() => setToast({ show: false, msg: '' })} message={toast.msg} duration={2500} position="top" color="success" />
+      <IonToast isOpen={toast.show} onDidDismiss={() => setToast(t => ({ ...t, show: false }))} message={toast.msg} duration={2500} position="top" color={toast.color} />
     </IonContent>
   );
 };

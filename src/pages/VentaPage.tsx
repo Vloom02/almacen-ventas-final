@@ -66,7 +66,13 @@ const VentaPage: React.FC = () => {
   const total = subtotal - desc;
   const totalItems = state.cart.reduce((s, c) => s + c.qty, 0);
 
+  const fiadoSinCliente = fiado && !cliente.trim();
+
   const handleConfirm = async () => {
+    if (fiadoSinCliente) {
+      toast$('Ingresá el nombre del cliente para registrar el fiado', false);
+      return;
+    }
     setProc(true);
     const r = await confirmarVenta({ metodoPago, cliente: cliente.trim(), fiado, descuento: desc });
     setProc(false);
@@ -170,14 +176,14 @@ const VentaPage: React.FC = () => {
                       )}
                     </div>
                   </div>
-                  <button onClick={() => setQty(item.productoId, item.qty - 1)} className="pressable" style={{ width: 30, height: 30, border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', background: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--color-warning)' }}><MinusIcon size={16} /></button>
-                  <input type="number" inputMode="numeric" value={item.qty}
+                  <button aria-label={`Restar uno a ${item.nombre}`} onClick={() => setQty(item.productoId, item.qty - 1)} className="pressable" style={{ width: 30, height: 30, border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', background: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--color-warning)' }}><MinusIcon size={16} /></button>
+                  <input type="number" inputMode="numeric" value={item.qty} aria-label={`Cantidad de ${item.nombre}`}
                     onChange={e => { const v = parseInt(e.target.value); setQty(item.productoId, isNaN(v) ? 0 : v); }}
                     onFocus={e => e.target.select()}
                     style={{ width: 44, fontSize: 15, fontWeight: 700, textAlign: 'center', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', padding: '4px 2px', background: 'var(--surface)', color: 'var(--text)', outline: 'none' }} />
-                  <button onClick={() => setQty(item.productoId, item.qty + 1)} className="pressable" style={{ width: 30, height: 30, border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', background: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--color-primary)' }}><PlusIcon size={16} /></button>
+                  <button aria-label={`Sumar uno a ${item.nombre}`} onClick={() => setQty(item.productoId, item.qty + 1)} className="pressable" style={{ width: 30, height: 30, border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', background: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--color-primary)' }}><PlusIcon size={16} /></button>
                   <span style={{ fontFamily: 'var(--font-mono)', fontSize: 14, fontWeight: 700, color: 'var(--color-accent)', minWidth: 64, textAlign: 'right' }}>{formatMoney(item.precio * item.qty)}</span>
-                  <button onClick={() => quitar(item.productoId)} className="pressable" style={{ width: 30, height: 30, border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', background: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--color-danger)' }}><XMarkIcon size={16} /></button>
+                  <button aria-label={`Quitar ${item.nombre} del carrito`} onClick={() => quitar(item.productoId)} className="pressable" style={{ width: 30, height: 30, border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', background: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--color-danger)' }}><XMarkIcon size={16} /></button>
                 </Card>
               ))}
             </div>
@@ -227,7 +233,8 @@ const VentaPage: React.FC = () => {
             {/* Cliente */}
             <label style={{ fontSize: 13, color: 'var(--text-2)', display: 'block', marginBottom: 4 }}>Cliente (opcional)</label>
             <input value={cliente} onChange={e => setCliente(e.target.value)} placeholder="Nombre del cliente"
-              style={{ width: '100%', padding: 11, fontSize: 15, background: 'var(--surface)', color: 'var(--text)', border: '1.5px solid var(--border)', borderRadius: 'var(--radius)', outline: 'none', marginBottom: 12 }} />
+              aria-label="Nombre del cliente"
+              style={{ width: '100%', padding: 11, fontSize: 15, background: 'var(--surface)', color: 'var(--text)', border: `1.5px solid ${fiadoSinCliente ? 'var(--color-danger)' : 'var(--border)'}`, borderRadius: 'var(--radius)', outline: 'none', marginBottom: 12 }} />
 
             {/* Método de pago */}
             <label style={{ fontSize: 13, color: 'var(--text-2)', display: 'block', marginBottom: 6 }}>Método de pago</label>
@@ -241,12 +248,17 @@ const VentaPage: React.FC = () => {
             </div>
 
             {/* Fiado */}
-            <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', marginBottom: 16 }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', marginBottom: fiadoSinCliente ? 6 : 16 }}>
               <input type="checkbox" checked={fiado} onChange={e => setFiado(e.target.checked)} style={{ width: 18, height: 18 }} />
               <span style={{ fontSize: 14 }}>Registrar como deuda (fiado)</span>
             </label>
+            {fiadoSinCliente && (
+              <div style={{ fontSize: 12, color: 'var(--color-danger)', marginBottom: 16 }}>
+                Ingresá el nombre del cliente para registrar la deuda.
+              </div>
+            )}
 
-            <Button fullWidth size="lg" onClick={handleConfirm} loading={processing}><CheckIcon size={18} /> Confirmar y descontar stock</Button>
+            <Button fullWidth size="lg" onClick={handleConfirm} loading={processing} disabled={fiadoSinCliente}><CheckIcon size={18} /> Confirmar y descontar stock</Button>
             <Button fullWidth variant="ghost" onClick={() => setConfirm(false)} style={{ marginTop: 8 }}>Volver</Button>
           </div>
         </IonContent>
