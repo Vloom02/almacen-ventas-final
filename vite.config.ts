@@ -6,17 +6,10 @@ import { defineConfig } from 'vite'
 export default defineConfig({
   plugins: [react()],
   build: {
-    // Vendors pesados en chunks propios: se cachean entre deploys y cargan en paralelo.
-    rollupOptions: {
-      output: {
-        manualChunks: {
-          react: ['react', 'react-dom', 'react-router', 'react-router-dom'],
-          ionic: ['@ionic/react', '@ionic/react-router'],
-          supabase: ['@supabase/supabase-js'],
-        },
-      },
-    },
-    chunkSizeWarningLimit: 1200, // el chunk de Ionic (~1.1 MB) es el framework: esperado y cacheado
+    // NO usar manualChunks acá: agrupar react + react-router en un chunk propio
+    // generaba un ReferenceError de inicialización (TDZ) en el build minificado
+    // → la app quedaba en blanco. El chunking por defecto resuelve bien el orden.
+    chunkSizeWarningLimit: 2000,
   },
   test: {
     globals: true,
