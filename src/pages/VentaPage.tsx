@@ -161,9 +161,13 @@ const VentaPage: React.FC = () => {
           <EmptyState icon={<ShoppingCartIcon size={44} color="var(--text-3)" />} title="El carrito está vacío" description="Escaneá o buscá productos para comenzar la venta" />
         ) : (
           <>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 12 }}>
-              {state.cart.map(item => (
-                <Card key={item.productoId} variant="bordered" style={{ padding: '11px 12px', display: 'flex', alignItems: 'center', gap: 8, borderColor: item.qty > item.stockDisponible ? 'var(--color-danger-border)' : undefined }}>
+            <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', overflow: 'hidden', marginBottom: 12, boxShadow: 'var(--shadow-sm)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '11px 14px', borderBottom: '1px solid var(--border)', background: 'var(--surface-2)' }}>
+                <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-2)' }}>🧾 Carrito</span>
+                <span style={{ fontSize: 12, fontFamily: 'var(--font-mono)', color: 'var(--text-2)' }}>{totalItems} item{totalItems !== 1 ? 's' : ''}</span>
+              </div>
+              {state.cart.map((item, i) => (
+                <div key={item.productoId} style={{ padding: '11px 13px', display: 'flex', alignItems: 'center', gap: 8, borderBottom: i < state.cart.length - 1 ? '1px solid var(--border)' : 'none', background: item.qty > item.stockDisponible ? 'var(--color-danger-bg)' : undefined }}>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontWeight: 600, fontSize: 14, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.nombre}</div>
                     <div style={{ fontSize: 12, color: 'var(--text-2)' }}>
@@ -184,17 +188,17 @@ const VentaPage: React.FC = () => {
                   <button aria-label={`Sumar uno a ${item.nombre}`} onClick={() => setQty(item.productoId, item.qty + 1)} className="pressable" style={{ width: 30, height: 30, border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', background: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--color-primary)' }}><PlusIcon size={16} /></button>
                   <span style={{ fontFamily: 'var(--font-mono)', fontSize: 14, fontWeight: 700, color: 'var(--color-accent)', minWidth: 64, textAlign: 'right' }}>{formatMoney(item.precio * item.qty)}</span>
                   <button aria-label={`Quitar ${item.nombre} del carrito`} onClick={() => quitar(item.productoId)} className="pressable" style={{ width: 30, height: 30, border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', background: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--color-danger)' }}><XMarkIcon size={16} /></button>
-                </Card>
+                </div>
               ))}
             </div>
 
             {/* Total bar */}
-            <div style={{ background: 'var(--slate-900)', color: '#fff', borderRadius: 'var(--radius-lg)', padding: 'var(--space-4)', marginBottom: 8, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div style={{ background: 'var(--color-primary)', color: '#06231a', borderRadius: 'var(--radius-lg)', padding: 'var(--space-4)', marginBottom: 8, display: 'flex', alignItems: 'center', justifyContent: 'space-between', boxShadow: '0 8px 22px rgba(58,214,163,.18)' }}>
               <div>
-                <div style={{ fontSize: 13, opacity: .7 }}>TOTAL</div>
-                <div style={{ fontSize: 12, opacity: .6 }}>{totalItems} item{totalItems !== 1 ? 's' : ''}</div>
+                <div style={{ fontSize: 13, fontWeight: 700, opacity: .85 }}>TOTAL</div>
+                <div style={{ fontSize: 12, opacity: .6, fontFamily: 'var(--font-mono)' }}>{totalItems} item{totalItems !== 1 ? 's' : ''}</div>
               </div>
-              <div style={{ fontSize: 26, fontWeight: 800, fontFamily: 'var(--font-mono)' }}>{formatMoney(subtotal)}</div>
+              <div style={{ fontSize: 28, fontWeight: 800, fontFamily: 'var(--font-mono)', letterSpacing: '-0.02em' }}>{formatMoney(subtotal)}</div>
             </div>
 
             <div style={{ display: 'flex', gap: 8 }}>
