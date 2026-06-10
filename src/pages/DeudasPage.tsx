@@ -12,8 +12,9 @@ import { BookOpenIcon, CheckIcon, MagnifyingGlass } from '../components/ui/icons
 interface DeudaRow { id: string; cliente: string; monto: number; pagada: boolean; fecha: string; }
 
 const DeudasPage: React.FC = () => {
-  const { comercio } = useAuth();
+  const { comercio, miembro } = useAuth();
   const [deudas, setDeudas] = useState<DeudaRow[]>([]);
+  const [pagos, setPagos] = useState<Record<string, number>>({}); // deuda_id → abonado
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [toast, setToast] = useState({ show: false, msg: '', color: 'success' as 'success' | 'danger' });
@@ -24,7 +25,16 @@ const DeudasPage: React.FC = () => {
     const { data } = await supabase.from('ventas_deudas').select('*')
       .eq('comercio_id', comercio.id).eq('pagada', false)
       .order('fecha', { ascending: false });
-    setDeudas((data ?? []) as DeudaRow[]);
+    const rows = (data ?? []) as DeudaRow[];
+    setDeudas(rows);
+    // Pagos parciales ya registrados (para calcular saldo).
+    const ids = rows.map(d => d.id);
+    if (ids.length) {
+      const { data: p } = await supabase.from('ventas_pagos').select('deuda_id, monto').in('deuda_id', ids);
+      const m: Record<string, number> = {};
+      for (const x of p ?? []) m[x.deuda_id] = (m[x.deuda_id] ?? 0) + Number(x.monto);
+      setPagos(m);
+    } else { setPagos({}); }
     setLoading(false);
   };
 
@@ -32,19 +42,45 @@ const DeudasPage: React.FC = () => {
   // Recargar cada vez que se entra a la pestaña (puede haber nuevos fiados desde Venta).
   useIonViewWillEnter(() => { load(); });
 
-  const marcarPagada = async (id: string, cliente: string) => {
-    if (!confirm(`¿Marcar la deuda de "${cliente}" como pagada?`)) return;
-    const { error } = await supabase.from('ventas_deudas').update({ pagada: true }).eq('id', id);
-    if (error) {
-      setToast({ show: true, msg: 'No se pudo marcar como pagada (¿sin conexión?)', color: 'danger' });
-      return;
+  const saldoDe = (d: DeudaRow) => Math.max(0, d.monto - (pagos[d.id] ?? 0));
+
+  // Registra un abono (parcial o total). monto = remaining → salda la deuda.
+  const registrarPago = async (d: DeudaRow, monto: number) => {
+    if (!comercio || monto <= 0) return;
+    const { data, error } = await supabase.rpc('registrar_pago_fiado', {
+      p: { deuda_id: d.id, comercio_id: comercio.id, monto, usuario: miembro?.nombre ?? null },
+    });
+    if (error) { setToast({ show: true, msg: 'No se pudo registrar el pago (¿sin conexión?)', color: 'danger' }); return; }
+    const res = data as { saldada?: boolean; saldo?: number };
+    if (res?.saldada) {
+      setDeudas(x => x.filter(y => y.id !== d.id));
+      setToast({ show: true, msg: `${d.cliente} saldó su deuda 🎉`, color: 'success' });
+    } else {
+      setPagos(p => ({ ...p, [d.id]: (p[d.id] ?? 0) + monto }));
+      setToast({ show: true, msg: `Pago de ${formatMoney(monto)} · saldo ${formatMoney(res?.saldo ?? 0)}`, color: 'success' });
     }
-    setDeudas(d => d.filter(x => x.id !== id));
-    setToast({ show: true, msg: `${cliente} pagó su deuda`, color: 'success' });
+  };
+
+  const pedirPago = (d: DeudaRow) => {
+    const saldo = saldoDe(d);
+    const txt = window.prompt(`Pago de ${d.cliente}. Saldo: ${formatMoney(saldo)}.\n¿Cuánto abona?`, String(saldo));
+    if (txt === null) return;
+    const monto = Math.min(saldo, Math.round(parseFloat(txt.replace(',', '.')) || 0));
+    if (monto > 0) registrarPago(d, monto);
+  };
+
+  const saldar = (d: DeudaRow) => {
+    if (!window.confirm(`¿Saldar la deuda de "${d.cliente}" (${formatMoney(saldoDe(d))})?`)) return;
+    registrarPago(d, saldoDe(d));
+  };
+
+  const recordar = (d: DeudaRow) => {
+    const msg = `Hola ${d.cliente}! Te recuerdo que tenés una cuenta pendiente de ${formatMoney(saldoDe(d))} en ${comercio?.nombre ?? 'el almacén'}. ¡Gracias!`;
+    window.open('https://wa.me/?text=' + encodeURIComponent(msg), '_blank');
   };
 
   const filtered = useMemo(() => deudas.filter(d => !search || d.cliente.toLowerCase().includes(search.toLowerCase())), [deudas, search]);
-  const total = useMemo(() => deudas.reduce((s, d) => s + d.monto, 0), [deudas]);
+  const total = useMemo(() => deudas.reduce((s, d) => s + saldoDe(d), 0), [deudas, pagos]);
 
   // Agrupar por cliente
   const porCliente = useMemo(() => {
@@ -77,23 +113,27 @@ const DeudasPage: React.FC = () => {
         ) : filtered.length === 0 ? (
           <EmptyState icon={<BookOpenIcon size={44} color="var(--text-3)" />} title={deudas.length === 0 ? 'Sin deudas' : 'Sin resultados'} description={deudas.length === 0 ? 'No hay fiados pendientes' : 'Probá otra búsqueda'} />
         ) : (
-          filtered.map(d => (
+          filtered.map(d => {
+            const abonado = pagos[d.id] ?? 0;
+            const saldo = saldoDe(d);
+            return (
             <Card key={d.id} variant="bordered" style={{ padding: '12px 14px', marginBottom: 7 }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 10 }}>
                 <div>
                   <div style={{ fontWeight: 600, fontSize: 15 }}>👤 {d.cliente}</div>
                   <div style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 2 }}>{new Date(d.fecha).toLocaleString('es-AR', { dateStyle: 'short', timeStyle: 'short' })}</div>
+                  {abonado > 0 && <div style={{ fontSize: 11, color: 'var(--color-primary-dark)', marginTop: 3 }}>Abonado {formatMoney(abonado)} de {formatMoney(d.monto)}</div>}
                   {porCliente[d.cliente]?.count > 1 && <Badge color="yellow" style={{ marginTop: 4 }}>Total cliente: {formatMoney(porCliente[d.cliente].total)}</Badge>}
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <span style={{ fontWeight: 800, fontSize: 16, color: 'var(--color-danger)', fontFamily: 'var(--font-mono)' }}>{formatMoney(d.monto)}</span>
-                  <button aria-label={`Marcar deuda de ${d.cliente} como pagada`} onClick={() => marcarPagada(d.id, d.cliente)} className="pressable" style={{ width: 36, height: 36, border: '1px solid var(--color-primary-border)', borderRadius: 'var(--radius)', background: 'var(--color-primary-bg)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <CheckIcon size={18} color="var(--color-primary-dark)" />
-                  </button>
-                </div>
+                <span style={{ fontWeight: 800, fontSize: 17, color: 'var(--color-danger)', fontFamily: 'var(--font-mono)' }}>{formatMoney(saldo)}</span>
+              </div>
+              <div style={{ display: 'flex', gap: 6 }}>
+                <button onClick={() => pedirPago(d)} className="pressable" style={{ flex: 1, padding: '8px', border: '1px solid var(--border)', borderRadius: 'var(--radius)', background: 'var(--surface)', color: 'var(--text)', cursor: 'pointer', fontSize: 13, fontWeight: 600, fontFamily: 'inherit' }}>$ Pago</button>
+                <button onClick={() => saldar(d)} className="pressable" style={{ flex: 1, padding: '8px', border: '1px solid var(--color-primary-border)', borderRadius: 'var(--radius)', background: 'var(--color-primary-bg)', color: 'var(--color-primary-dark)', cursor: 'pointer', fontSize: 13, fontWeight: 700, fontFamily: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5 }}><CheckIcon size={15} /> Saldar</button>
+                <button onClick={() => recordar(d)} aria-label={`Recordar a ${d.cliente} por WhatsApp`} className="pressable" style={{ width: 40, padding: '8px', border: '1px solid var(--border)', borderRadius: 'var(--radius)', background: 'var(--surface)', cursor: 'pointer', fontSize: 15 }}>💬</button>
               </div>
             </Card>
-          ))
+          );})
         )}
       </div>
       <IonToast isOpen={toast.show} onDidDismiss={() => setToast(t => ({ ...t, show: false }))} message={toast.msg} duration={2500} position="top" color={toast.color} />

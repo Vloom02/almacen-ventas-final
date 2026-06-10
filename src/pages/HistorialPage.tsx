@@ -10,12 +10,24 @@ import { Card, Badge, EmptyState, Skeleton, Button } from '../components/ui';
 import { ClipboardIcon, FunnelIcon, DocumentIcon } from '../components/ui/icons';
 import { HistoryFilters } from '../types';
 
-interface VentaRow { id: string; total: number; descuento: number; metodo_pago: string; cliente: string; fiado: boolean; usuario: string; fecha: string; }
+interface VentaRow { id: string; total: number; descuento: number; metodo_pago: string; cliente: string; fiado: boolean; usuario: string; fecha: string; anulada?: boolean; }
 
-const SaleCard: React.FC<{ venta: VentaRow }> = ({ venta }) => {
+const SaleCard: React.FC<{ venta: VentaRow; onChanged: () => void }> = ({ venta, onChanged }) => {
+  const { comercio, miembro } = useAuth();
   const [open, setOpen] = useState(false);
+  const [anulando, setAnulando] = useState(false);
   const [items, setItems] = useState<{ cantidad: number; precio_unit: number; subtotal: number; producto_id: string }[]>([]);
   const [prods, setProds] = useState<Record<string, string>>({});
+
+  const anular = async () => {
+    if (!comercio || venta.anulada) return;
+    if (!window.confirm('¿Anular esta venta y devolver el stock a los lotes? No se puede deshacer.')) return;
+    setAnulando(true);
+    const { error } = await supabase.rpc('anular_venta', { p: { venta_id: venta.id, comercio_id: comercio.id, usuario: miembro?.nombre ?? null } });
+    setAnulando(false);
+    if (!error) onChanged();
+    else window.alert('No se pudo anular: ' + error.message);
+  };
 
   const toggle = async () => {
     const next = !open;
@@ -37,14 +49,16 @@ const SaleCard: React.FC<{ venta: VentaRow }> = ({ venta }) => {
   const metodoLabel = ({ efectivo: 'Efectivo', transferencia: 'Transferencia', tarjeta: 'Tarjeta', qr: 'QR' } as Record<string, string>)[venta.metodo_pago] ?? venta.metodo_pago;
 
   return (
-    <Card variant="bordered" style={{ padding: 0, overflow: 'hidden', marginBottom: 7 }}>
+    <Card variant="bordered" style={{ padding: 0, overflow: 'hidden', marginBottom: 7, opacity: venta.anulada ? 0.6 : 1 }}>
       <div onClick={toggle} className="pressable" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '11px 14px', cursor: 'pointer' }}>
         <div>
-          <div style={{ fontSize: 12, color: 'var(--text-2)' }}>🕐 {time} {venta.usuario && <Badge color="purple" style={{ marginLeft: 4, fontSize: 10 }}>{venta.usuario}</Badge>}</div>
+          <div style={{ fontSize: 12, color: 'var(--text-2)' }}>🕐 {time} {venta.usuario && <Badge color="purple" style={{ marginLeft: 4, fontSize: 10 }}>{venta.usuario}</Badge>}
+            {venta.anulada && <span style={{ marginLeft: 6, fontSize: 10, fontWeight: 700, color: 'var(--color-danger)', background: 'var(--color-danger-bg)', border: '1px solid var(--color-danger-border)', borderRadius: 'var(--radius-full)', padding: '1px 7px' }}>ANULADA</span>}
+          </div>
           <div style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 1 }}>{metodoLabel}{venta.cliente ? ` · ${venta.cliente}` : ''}{venta.fiado ? ' · Fiado' : ''}</div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <span style={{ fontSize: 16, fontWeight: 800, color: 'var(--color-primary-dark)', fontFamily: 'var(--font-mono)' }}>{formatMoney(venta.total)}</span>
+          <span style={{ fontSize: 16, fontWeight: 800, color: 'var(--color-primary-dark)', fontFamily: 'var(--font-mono)', textDecoration: venta.anulada ? 'line-through' : 'none' }}>{formatMoney(venta.total)}</span>
           <span style={{ color: 'var(--text-3)', fontSize: 18, transition: 'transform .2s', transform: open ? 'rotate(90deg)' : '' }}>›</span>
         </div>
       </div>
@@ -57,6 +71,12 @@ const SaleCard: React.FC<{ venta: VentaRow }> = ({ venta }) => {
             </div>
           ))}
           {venta.descuento > 0 && <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, padding: '2px 0', color: 'var(--color-primary-dark)' }}><span>Descuento</span><span style={{ fontFamily: 'var(--font-mono)' }}>-{formatMoney(venta.descuento)}</span></div>}
+          {!venta.anulada && (
+            <button type="button" onClick={anular} disabled={anulando} className="pressable"
+              style={{ marginTop: 10, width: '100%', padding: '9px', background: 'var(--color-danger-bg)', color: 'var(--color-danger)', border: '1px solid var(--color-danger-border)', borderRadius: 'var(--radius)', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', opacity: anulando ? 0.6 : 1 }}>
+              {anulando ? 'Anulando…' : '↩ Anular venta / devolución'}
+            </button>
+          )}
         </div>
       )}
     </Card>
@@ -166,7 +186,7 @@ const HistorialPage: React.FC = () => {
                   <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
                   <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--color-primary-dark)' }}>{formatMoney(dayTotal)}</span>
                 </div>
-                {vs.map(v => <SaleCard key={v.id} venta={v} />)}
+                {vs.map(v => <SaleCard key={v.id} venta={v} onChanged={cargar} />)}
               </div>
             );
           })
