@@ -11,3 +11,8 @@ ios
 coverage
 *.keystore
 *.jks
+
+# Playwright
+test-results
+playwright-report
+.playwright

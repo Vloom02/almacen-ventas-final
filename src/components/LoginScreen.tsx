@@ -33,10 +33,10 @@ const LoginScreen: React.FC = () => {
   return (
     <IonContent style={{ '--background': 'var(--bg)' } as React.CSSProperties}>
       <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 'var(--space-6)' }}>
-        <div style={{ width: 64, height: 64, borderRadius: 'var(--radius-xl)', background: 'var(--color-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 'var(--space-4)', boxShadow: 'var(--shadow-md)' }}>
-          <ShoppingCartIcon size={32} color="#fff" />
+        <div style={{ width: 64, height: 64, borderRadius: 'var(--radius-lg)', background: 'linear-gradient(135deg, var(--amber-300), var(--amber-600))', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 'var(--space-4)', boxShadow: 'var(--shadow-md), var(--glow-strong)' }}>
+          <ShoppingCartIcon size={34} color="#2a1a00" />
         </div>
-        <h1 style={{ fontSize: 24, fontWeight: 800, marginBottom: 4 }}>Almacén Ventas</h1>
+        <h1 style={{ fontSize: 24, fontWeight: 700, marginBottom: 4, letterSpacing: '.04em', textTransform: 'uppercase' }}>Almacén Ventas</h1>
         <p style={{ fontSize: 14, color: 'var(--text-2)', marginBottom: 'var(--space-6)', textAlign: 'center', maxWidth: 280, lineHeight: 1.6 }}>
           {mode === 'login' ? 'Ingresá con tu cuenta de Stockly' : 'Creá tu cuenta — sirve para Stockly también'}
         </p>

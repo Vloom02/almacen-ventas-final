@@ -7,10 +7,22 @@ const config: CapacitorConfig = {
   server: {
     androidScheme: 'https', // required for IndexedDB on Android
   },
+  android: {
+    backgroundColor: '#0b0d0c',
+  },
   plugins: {
+    SplashScreen: {
+      launchShowDuration: 1200,
+      launchAutoHide: true,
+      backgroundColor: '#0b0d0c',
+      androidScaleType: 'CENTER_CROP',
+      showSpinner: false,
+      splashFullScreen: true,
+      splashImmersive: true,
+    },
     StatusBar: {
       style: 'DARK',
-      backgroundColor: '#5b21b6', // emerald-600
+      backgroundColor: '#0b0d0c',
     },
     Keyboard: {
       resize: 'body',
@@ -18,7 +30,7 @@ const config: CapacitorConfig = {
     },
     LocalNotifications: {
       smallIcon: 'ic_stat_icon',
-      iconColor: '#5b21b6',
+      iconColor: '#ffb02e',
     },
   },
 };

@@ -1,20 +1,23 @@
-import React from 'react';
-import { IonApp, IonRouterOutlet, IonTabs, IonTabBar, IonTabButton, IonLabel, setupIonicReact } from '@ionic/react';
+import React, { Suspense, lazy } from 'react';
+import { IonApp, IonRouterOutlet, IonTabs, IonTabBar, IonTabButton, IonLabel, IonSpinner, setupIonicReact } from '@ionic/react';
 import { IonReactRouter } from '@ionic/react-router';
 import { Route, Redirect } from 'react-router-dom';
 
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { VentasProvider } from './context/VentasContext';
 import { ThemeProvider } from './context/ThemeContext';
+import { FontScaleProvider } from './context/FontScaleContext';
 import { OwnerProvider } from './context/OwnerContext';
 import OwnerGuard from './components/OwnerGuard';
 import LoginScreen from './components/LoginScreen';
-import VentaPage from './pages/VentaPage';
-import DashboardPage from './pages/DashboardPage';
-import StockPage from './pages/StockPage';
-import CierrePage from './pages/CierrePage';
-import HistorialPage from './pages/HistorialPage';
-import DeudasPage from './pages/DeudasPage';
+import OnboardingVentas from './components/OnboardingVentas';
+import VentaPage from './pages/VentaPage'; // eager: es la pantalla de inicio
+// Páginas secundarias: lazy → bundle inicial más liviano / arranque más rápido
+const DashboardPage = lazy(() => import('./pages/DashboardPage'));
+const StockPage     = lazy(() => import('./pages/StockPage'));
+const CierrePage    = lazy(() => import('./pages/CierrePage'));
+const HistorialPage = lazy(() => import('./pages/HistorialPage'));
+const DeudasPage    = lazy(() => import('./pages/DeudasPage'));
 
 import { ShoppingCartIcon, ChartBarIcon, CubeIcon, ClipboardIcon, BookOpenIcon, BanknotesIcon } from './components/ui/icons';
 
@@ -29,6 +32,13 @@ import './theme/variables.css';
 
 setupIonicReact();
 
+// Fallback mientras carga una página lazy
+const PageLoader: React.FC = () => (
+  <div style={{ minHeight: '60vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+    <IonSpinner name="crescent" style={{ color: 'var(--color-primary)' }} />
+  </div>
+);
+
 // Tab icon wrapper (Heroicons → Ionic tab)
 const TabIcon: React.FC<{ Icon: React.FC<{size?:number;color?:string}>; active?: boolean }> = ({ Icon }) => (
   <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Icon size={22} /></span>
@@ -38,11 +48,11 @@ const Tabs: React.FC = () => (
   <IonTabs>
     <IonRouterOutlet>
       <Route path="/venta"      component={VentaPage}      exact />
-      <Route path="/dashboard"  exact render={() => <OwnerGuard titulo="Dashboard"><DashboardPage /></OwnerGuard>} />
-      <Route path="/stock"      component={StockPage} exact />
-      <Route path="/caja"       exact render={() => <OwnerGuard titulo="Cierre de caja"><CierrePage /></OwnerGuard>} />
-      <Route path="/historial"  exact render={() => <OwnerGuard titulo="Historial"><HistorialPage /></OwnerGuard>} />
-      <Route path="/deudas"     exact render={() => <OwnerGuard titulo="Deudas"><DeudasPage /></OwnerGuard>} />
+      <Route path="/dashboard"  exact render={() => <Suspense fallback={<PageLoader />}><OwnerGuard titulo="Dashboard"><DashboardPage /></OwnerGuard></Suspense>} />
+      <Route path="/stock"      exact render={() => <Suspense fallback={<PageLoader />}><StockPage /></Suspense>} />
+      <Route path="/caja"       exact render={() => <Suspense fallback={<PageLoader />}><OwnerGuard titulo="Cierre de caja"><CierrePage /></OwnerGuard></Suspense>} />
+      <Route path="/historial"  exact render={() => <Suspense fallback={<PageLoader />}><OwnerGuard titulo="Historial"><HistorialPage /></OwnerGuard></Suspense>} />
+      <Route path="/deudas"     exact render={() => <Suspense fallback={<PageLoader />}><OwnerGuard titulo="Deudas"><DeudasPage /></OwnerGuard></Suspense>} />
       <Route path="/" exact><Redirect to="/venta" /></Route>
     </IonRouterOutlet>
 
@@ -107,6 +117,7 @@ const Gate: React.FC = () => {
         <IonReactRouter>
           <Tabs />
         </IonReactRouter>
+        <OnboardingVentas />
       </OwnerProvider>
     </VentasProvider>
   );
@@ -115,9 +126,11 @@ const Gate: React.FC = () => {
 const App: React.FC = () => (
   <IonApp>
     <ThemeProvider>
-      <AuthProvider>
-        <Gate />
-      </AuthProvider>
+      <FontScaleProvider>
+        <AuthProvider>
+          <Gate />
+        </AuthProvider>
+      </FontScaleProvider>
     </ThemeProvider>
   </IonApp>
 );

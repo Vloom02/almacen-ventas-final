@@ -6,6 +6,7 @@ import { IonContent, IonModal, IonToast } from '@ionic/react';
 import { useVentas, formatMoney } from '../context/VentasContext';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
+import { useFontScale, ESCALA_MIN, ESCALA_MAX } from '../context/FontScaleContext';
 import { useOwner } from '../context/OwnerContext';
 import { Button, Card, SyncBanner, EmptyState } from '../components/ui';
 import {
@@ -13,6 +14,8 @@ import {
   TrashIcon, CheckIcon, SunIcon, MoonIcon, LockClosedIcon,
 } from '../components/ui/icons';
 import { Producto } from '../types';
+import { armarTicket } from '../lib/ticket';
+import { Capacitor } from '@capacitor/core';
 
 const payOptions = [
   { key: 'efectivo',     label: '💵 Efectivo' },
@@ -25,6 +28,7 @@ const VentaPage: React.FC = () => {
   const { state, escanear, buscarPorNombre, agregarProducto, setQty, quitar, vaciar, confirmarVenta } = useVentas();
   const { sucursalActiva, sucursales, setSucursalActiva, comercio } = useAuth();
   const { isDark, toggleDark } = useTheme();
+  const { escala, setEscala } = useFontScale();
   const { isUnlocked, lock } = useOwner();
 
   const [scan, setScan]           = useState('');
@@ -36,6 +40,7 @@ const VentaPage: React.FC = () => {
   const [descuento, setDescuento] = useState('');
   const [fiado, setFiado]         = useState(false);
   const [processing, setProc]     = useState(false);
+  const [ticket, setTicket]       = useState<string | null>(null);
   const [toast, setToast]         = useState({ show: false, msg: '', color: 'success' });
   const scanRef = useRef<HTMLInputElement>(null);
 
@@ -73,15 +78,50 @@ const VentaPage: React.FC = () => {
       toast$('Ingresá el nombre del cliente para registrar el fiado', false);
       return;
     }
+    // Snapshot del carrito ANTES de confirmar (confirmarVenta vacía el carrito).
+    const snap = {
+      items: state.cart.map(c => ({ nombre: c.nombre, qty: c.qty, precio: c.precio })),
+      subtotal, descuento: desc, total, metodoPago, cliente: cliente.trim(), fiado,
+    };
     setProc(true);
     const r = await confirmarVenta({ metodoPago, cliente: cliente.trim(), fiado, descuento: desc });
     setProc(false);
     if (r.ok) {
+      const txt = armarTicket({
+        comercio: comercio?.nombre ?? 'Almacén',
+        sucursal: sucursalActiva?.nombre,
+        fecha: new Date(),
+        folio: (r.ventaId ?? '').replace(/-/g, '').slice(0, 6).toUpperCase() || '------',
+        items: snap.items, subtotal: snap.subtotal, descuento: snap.descuento,
+        total: snap.total, metodoPago: snap.metodoPago, cliente: snap.cliente, fiado: snap.fiado,
+      }, formatMoney);
+      setTicket(txt);
       setConfirm(false); setCliente(''); setDescuento(''); setFiado(false); setMetodo('efectivo');
       toast$(r.msg, true);
     } else {
       toast$(r.msg, false);
     }
+  };
+
+  const compartirTicket = async () => {
+    if (!ticket) return;
+    try {
+      if (Capacitor.isNativePlatform()) {
+        const { Share } = await import('@capacitor/share');
+        await Share.share({ title: 'Comprobante de venta', text: ticket, dialogTitle: 'Compartir comprobante' });
+      } else if (navigator.share) {
+        await navigator.share({ text: ticket });
+      } else {
+        await navigator.clipboard.writeText(ticket);
+        toast$('Comprobante copiado', true);
+      }
+    } catch { /* el usuario canceló el share */ }
+  };
+
+  const copiarTicket = async () => {
+    if (!ticket) return;
+    try { await navigator.clipboard.writeText(ticket); toast$('Comprobante copiado', true); }
+    catch { toast$('No se pudo copiar', false); }
   };
 
   return (
@@ -109,6 +149,15 @@ const VentaPage: React.FC = () => {
                 <span style={{ position: 'absolute', top: -6, right: -8, background: 'var(--color-danger)', color: '#fff', fontSize: 10, fontWeight: 700, borderRadius: 'var(--radius-full)', padding: '1px 6px', minWidth: 16, textAlign: 'center' }}>{totalItems}</span>
               </div>
             )}
+            {/* Tamaño de texto */}
+            <div style={{ display: 'flex', alignItems: 'center', border: '1px solid var(--border)', borderRadius: 'var(--radius-full)', background: 'var(--surface-2)', overflow: 'hidden', flexShrink: 0 }}>
+              <button onClick={() => setEscala(escala - 0.05)} disabled={escala <= ESCALA_MIN}
+                aria-label="Achicar texto" className="pressable"
+                style={{ width: 34, height: 38, border: 'none', background: 'none', cursor: 'pointer', color: 'var(--text-2)', fontSize: 13, fontWeight: 700, opacity: escala <= ESCALA_MIN ? .4 : 1 }}>A−</button>
+              <button onClick={() => setEscala(escala + 0.05)} disabled={escala >= ESCALA_MAX}
+                aria-label="Agrandar texto" className="pressable"
+                style={{ width: 34, height: 38, border: 'none', borderLeft: '1px solid var(--border)', background: 'none', cursor: 'pointer', color: 'var(--text)', fontSize: 18, fontWeight: 700, opacity: escala >= ESCALA_MAX ? .4 : 1 }}>A+</button>
+            </div>
             <button onClick={toggleDark} aria-label="Cambiar tema" className="pressable"
               style={{ width: 38, height: 38, borderRadius: 'var(--radius-full)', border: '1px solid var(--border)', background: 'var(--surface-2)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }}>
               {isDark ? <SunIcon size={20} color="var(--color-warning)" /> : <MoonIcon size={20} color="var(--text-2)" />}
@@ -193,9 +242,9 @@ const VentaPage: React.FC = () => {
             </div>
 
             {/* Total bar */}
-            <div style={{ background: 'var(--color-primary)', color: '#06231a', borderRadius: 'var(--radius-lg)', padding: 'var(--space-4)', marginBottom: 8, display: 'flex', alignItems: 'center', justifyContent: 'space-between', boxShadow: '0 8px 22px rgba(58,214,163,.18)' }}>
+            <div style={{ background: 'linear-gradient(135deg, var(--amber-400), var(--amber-600))', color: '#2a1a00', borderRadius: 'var(--radius-lg)', padding: 'var(--space-4)', marginBottom: 8, display: 'flex', alignItems: 'center', justifyContent: 'space-between', boxShadow: 'var(--shadow-md), var(--glow)' }}>
               <div>
-                <div style={{ fontSize: 13, fontWeight: 700, opacity: .85 }}>TOTAL</div>
+                <div style={{ fontSize: 13, fontWeight: 700, opacity: .85, letterSpacing: '.12em' }}>TOTAL</div>
                 <div style={{ fontSize: 12, opacity: .6, fontFamily: 'var(--font-mono)' }}>{totalItems} item{totalItems !== 1 ? 's' : ''}</div>
               </div>
               <div style={{ fontSize: 28, fontWeight: 800, fontFamily: 'var(--font-mono)', letterSpacing: '-0.02em' }}>{formatMoney(subtotal)}</div>
@@ -264,6 +313,28 @@ const VentaPage: React.FC = () => {
 
             <Button fullWidth size="lg" onClick={handleConfirm} loading={processing} disabled={fiadoSinCliente}><CheckIcon size={18} /> Confirmar y descontar stock</Button>
             <Button fullWidth variant="ghost" onClick={() => setConfirm(false)} style={{ marginTop: 8 }}>Volver</Button>
+          </div>
+        </IonContent>
+      </IonModal>
+
+      {/* Ticket / comprobante tras la venta */}
+      <IonModal isOpen={!!ticket} onDidDismiss={() => setTicket(null)} breakpoints={[0, 1]} initialBreakpoint={1}>
+        <IonContent>
+          <div style={{ padding: 'var(--space-5)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+              <CheckIcon size={22} color="var(--color-primary)" />
+              <h2 style={{ fontSize: 18, fontWeight: 700 }}>Venta registrada</h2>
+            </div>
+            <pre style={{
+              fontFamily: 'var(--font-mono)', fontSize: 12.5, lineHeight: 1.5, whiteSpace: 'pre',
+              background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 'var(--radius)',
+              padding: 'var(--space-4)', overflowX: 'auto', color: 'var(--text)', margin: 0, marginBottom: 16,
+            }}>{ticket}</pre>
+            <Button fullWidth size="lg" onClick={compartirTicket}>Compartir comprobante</Button>
+            <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+              <Button variant="secondary" onClick={copiarTicket} style={{ flex: 1 }}>Copiar</Button>
+              <Button variant="ghost" onClick={() => setTicket(null)} style={{ flex: 1 }}>Listo</Button>
+            </div>
           </div>
         </IonContent>
       </IonModal>

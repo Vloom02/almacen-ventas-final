@@ -1,74 +1,98 @@
-/* ── Fonts: Plus Jakarta Sans (amable) + JetBrains Mono (números) ──────────── */
-@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700;800&display=swap');
+/* ── Fonts: Space Grotesk (legible con carácter) + JetBrains Mono (números) ──── */
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700;800&display=swap');
 
-/* ── Design tokens ────────────────────────────────────────────────────────────
-   Paleta: verde esmeralda como color de marca (igual que Stockly)
-   Spacing: escala 4px
-   Todo centralizado — cambiar un color = editar una línea
-*/
+/* ═══════════════════════════════════════════════════════════════════════════
+   TEMA: Terminal retro-futurista · fósforo ÁMBAR sobre negro
+   - Mono para números, Chakra Petch para UI (look de máquina de cobrar)
+   - Bordes filosos, sombras duras (offset sólido), grilla + scanlines
+   - Todo centralizado: cambiar un color = editar una línea
+   ═══════════════════════════════════════════════════════════════════════════ */
 :root {
-  /* ── Brand: Menta/Esmeralda (friendly) ──────────── */
-  --emerald-50:  #ecfbf5;
-  --emerald-100: #d3f5e6;
-  --emerald-200: #a8ead0;
-  --emerald-300: #6fdbb4;
-  --emerald-400: #45cf9f;
-  --emerald-500: #3ad6a3;
-  --emerald-600: #2cb487;
-  --emerald-700: #259a73;
-  --emerald-800: #1f7d5f;
-  --emerald-900: #1a6650;
+  color-scheme: dark;
 
-  /* ── Slate (grays) ──────────────────────────────── */
-  --slate-50:  #f8fafc;
-  --slate-100: #f1f5f9;
-  --slate-200: #e2e8f0;
-  --slate-300: #cbd5e1;
-  --slate-400: #94a3b8;
-  --slate-500: #64748b;
-  --slate-600: #475569;
-  --slate-700: #334155;
-  --slate-800: #1e293b;
-  --slate-900: #0f172a;
+  /* ── Brand: Ámbar fósforo (logo carrito) ──────────── */
+  --amber-50:  #fff6e3;
+  --amber-100: #ffe9bd;
+  --amber-200: #ffd98a;
+  --amber-300: #ffc858;
+  --amber-400: #ffba38;
+  --amber-500: #ffb02e;   /* ← color de marca */
+  --amber-600: #f29a1d;
+  --amber-700: #d07f12;
+  --amber-800: #a4640f;
+  --amber-900: #7a4a0c;
+
+  /* alias de compatibilidad (componentes viejos usaban --emerald-*) */
+  --emerald-50:  var(--amber-50);
+  --emerald-100: var(--amber-100);
+  --emerald-200: var(--amber-200);
+  --emerald-300: var(--amber-300);
+  --emerald-400: var(--amber-400);
+  --emerald-500: var(--amber-500);
+  --emerald-600: var(--amber-600);
+  --emerald-700: var(--amber-700);
+  --emerald-800: var(--amber-800);
+  --emerald-900: var(--amber-900);
+
+  /* ── Phosphor accents ───────────────────────────── */
+  --gold:   #e8c45f;   /* números/precios en oro (como Stockly) */
+  --lime:   #c5f23e;
+  --cyan:   #4fd2e8;
+
+  /* ── Slate / grises (oscuros, terminal) ─────────── */
+  --slate-50:  #e9f1ec;
+  --slate-100: #c9d4cf;
+  --slate-200: #94a39d;
+  --slate-300: #7f8c87;
+  --slate-400: #586461;
+  --slate-500: #455049;
+  --slate-600: #394442;
+  --slate-700: #2c3534;
+  --slate-800: #1b2122;
+  --slate-900: #14191a;
 
   /* ── Semantic colors ────────────────────────────── */
-  --color-primary:      var(--emerald-500);
-  --color-primary-dark: var(--emerald-600);
-  --color-primary-bg:   var(--emerald-50);
-  --color-primary-border: var(--emerald-200);
+  --color-primary:      var(--amber-500);
+  --color-primary-dark: var(--amber-600);
+  --color-primary-bg:   rgba(255,176,46,.12);
+  --color-primary-border: rgba(255,176,46,.42);
 
-  --color-danger:       #ef6f5a;
-  --color-danger-dark:  #d65440;
-  --color-danger-bg:    #fdf0ed;
-  --color-danger-border:#f6c9bf;
+  --color-danger:       #ff5d4c;
+  --color-danger-dark:  #e0402f;
+  --color-danger-bg:    rgba(255,93,76,.12);
+  --color-danger-border:rgba(255,93,76,.4);
 
-  --color-warning:      #d99a3e;
-  --color-warning-dark: #b87f2a;
-  --color-warning-bg:   #fbf3e3;
-  --color-warning-border:#f0d9a6;
+  --color-warning:      #ffce5c;
+  --color-warning-dark: #e9b13a;
+  --color-warning-bg:   rgba(255,206,92,.12);
+  --color-warning-border:rgba(255,206,92,.38);
 
-  --color-info:         #4a93b0;
-  --color-info-dark:    #3a7a93;
-  --color-info-bg:      #eef6f8;
-  --color-info-border:  #bfdde5;
+  --color-info:         var(--cyan);
+  --color-info-dark:    #2fb3c8;
+  --color-info-bg:      rgba(79,210,232,.1);
+  --color-info-border:  rgba(79,210,232,.34);
 
-  --color-accent:       #2cb487;
-  --color-accent-bg:    #e7f7f0;
-  --color-accent-border:#bfe9d8;
+  --color-accent:       #a8791c;   /* oro bronce, legible sobre claro */
+  --color-accent-bg:    rgba(168,121,28,.1);
+  --color-accent-border:rgba(168,121,28,.3);
 
-  /* ── Surface / Background ───────────────────────── */
-  --bg:          var(--slate-100);
+  /* ── Surface / Background (CLARO · papel de ticket) ── */
+  --bg:          #f4efe3;
   --surface:     #ffffff;
-  --surface-2:   var(--slate-50);
-  --surface-3:   var(--slate-200);
-  --border:      var(--slate-200);
-  --border-strong: var(--slate-300);
+  --surface-2:   #faf5ea;
+  --surface-3:   #f0e9d7;
+  --border:      #c2b083;   /* borde definido: encuadra las cajas */
+  --border-strong: #9a8557;
 
   /* ── Text ───────────────────────────────────────── */
-  --text:        var(--slate-900);
-  --text-2:      var(--slate-500);
-  --text-3:      var(--slate-400);
-  --text-invert: #ffffff;
+  --text:        #211b12;
+  --text-2:      #6f6757;
+  --text-3:      #9a9081;
+  --text-invert: #fbfaf6;
+
+  /* grilla + scanline (claro: trazos oscuros sutiles) */
+  --grid-dot:    rgba(80,60,20,.05);
+  --scanline:    rgba(80,60,20,.018);
 
   /* ── Spacing (escala 4px) ───────────────────────── */
   --space-1:  4px;
@@ -81,21 +105,23 @@
   --space-10: 40px;
   --space-12: 48px;
 
-  /* ── Radius ─────────────────────────────────────── */
-  --radius-sm: 8px;
-  --radius:    12px;
-  --radius-lg: 16px;
-  --radius-xl: 20px;
+  /* ── Radius (filoso, look de terminal) ──────────── */
+  --radius-sm: 2px;
+  --radius:    3px;
+  --radius-lg: 4px;
+  --radius-xl: 6px;
   --radius-full: 9999px;
 
-  /* ── Shadows ────────────────────────────────────── */
-  --shadow-sm: 0 1px 2px rgba(0,0,0,.06);
-  --shadow:    0 2px 8px rgba(0,0,0,.08);
-  --shadow-md: 0 4px 16px rgba(0,0,0,.10);
-  --shadow-lg: 0 8px 32px rgba(0,0,0,.12);
+  /* ── Shadows (offset sólido + glow fósforo) ─────── */
+  --shadow-sm: 2px 2px 0 rgba(90,70,25,.14);
+  --shadow:    3px 3px 0 rgba(90,70,25,.16);
+  --shadow-md: 5px 5px 0 rgba(90,70,25,.18);
+  --shadow-lg: 8px 8px 0 rgba(90,70,25,.2);
+  --glow:      0 0 10px rgba(255,176,46,.35);
+  --glow-strong: 0 0 16px rgba(255,176,46,.45);
 
   /* ── Typography ─────────────────────────────────── */
-  --font-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-sans: 'Space Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   --font-mono: 'JetBrains Mono', ui-monospace, monospace;
 
   /* ── Transitions ────────────────────────────────── */
@@ -112,37 +138,51 @@
   --ion-text-color: var(--text);
   --ion-color-primary: var(--color-primary);
   --ion-color-primary-shade: var(--color-primary-dark);
-  --ion-color-success: var(--color-primary);
+  --ion-color-primary-contrast: #1c1402;
+  --ion-color-success: var(--color-accent);
   --ion-color-danger: var(--color-danger);
   --ion-color-warning: var(--color-warning);
+  --ion-toolbar-background: var(--surface);
+  --ion-item-background: var(--surface);
 }
 
-/* ── Dark mode ──────────────────────────────────────────────────────────────── */
+/* ── Modo oscuro: TERMINAL negro fósforo ───────────────────────────────────── */
 body.dark {
-  --bg:          #0f1917;
-  --surface:     #172422;
-  --surface-2:   #1e2e2b;
-  --surface-3:   #273935;
-  --border:      #2a3b37;
-  --border-strong: #374e48;
+  color-scheme: dark;
 
-  --text:        #eaf3ef;
-  --text-2:      #8ba49d;
-  --text-3:      #5f756f;
+  --bg:          #0b0d0c;
+  --surface:     #14191a;
+  --surface-2:   #1b2122;
+  --surface-3:   #222a2b;
+  --border:      #2c3534;
+  --border-strong: #394442;
 
-  --color-primary-bg:    rgba(58,214,163,.12);
-  --color-primary-border: rgba(58,214,163,.4);
-  --color-danger-bg:     rgba(239,111,90,.12);
-  --color-danger-border: rgba(239,111,90,.36);
-  --color-warning-bg:    rgba(217,154,62,.12);
-  --color-warning-border:rgba(217,154,62,.36);
-  --color-info-bg:       #15282e;
-  --color-info-border:   #2c4a50;
-  --color-accent-bg:     rgba(44,180,135,.12);
-  --color-accent-border: rgba(44,180,135,.34);
+  --text:        #e9f1ec;
+  --text-2:      #7f8c87;
+  --text-3:      #586461;
+  --text-invert: #0b0d0c;
+
+  /* oro brillante para los números sobre negro */
+  --color-accent:       var(--gold);
+  --color-accent-bg:    rgba(232,196,95,.12);
+  --color-accent-border:rgba(232,196,95,.34);
+
+  --color-primary-bg:   rgba(255,176,46,.12);
+  --color-danger-bg:    rgba(255,93,76,.12);
+  --color-warning-bg:   rgba(255,206,92,.12);
+  --color-info-bg:      rgba(79,210,232,.1);
+
+  /* sombras duras negras + grilla de puntos claros */
+  --shadow-sm: 2px 2px 0 rgba(0,0,0,.55);
+  --shadow:    3px 3px 0 rgba(0,0,0,.55);
+  --shadow-md: 5px 5px 0 rgba(0,0,0,.6);
+  --shadow-lg: 8px 8px 0 rgba(0,0,0,.65);
+  --grid-dot:  rgba(255,255,255,.025);
+  --scanline:  rgba(255,255,255,.014);
 
   --ion-background-color: var(--bg);
-  --ion-text-color: var(--text);
+  --ion-toolbar-background: var(--surface);
+  --ion-item-background: var(--surface);
 }
 
 /* ── Base styles ─────────────────────────────────────────────────────────────── */
@@ -155,7 +195,28 @@ body {
   font-size: 15px;
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
+  /* grilla de puntos sutil, look de panel técnico (cambia por tema) */
+  background-image: radial-gradient(var(--grid-dot) 1px, transparent 1px);
+  background-size: 22px 22px;
 }
+
+/* scanlines globales (overlay finito, cambia por tema) */
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 9999;
+  background: linear-gradient(var(--scanline) 50%, transparent 50%);
+  background-size: 100% 4px;
+  opacity: .55;
+}
+
+/* Números y montos en mono, con leve glow ámbar */
+.mono, [class*="mono"] { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+
+/* Títulos en Space Grotesk con leve tracking de panel */
+h1, h2, h3, h4 { font-family: var(--font-sans); letter-spacing: .01em; }
 
 /* ── Animations ─────────────────────────────────────────────────────────────── */
 @keyframes fadeIn   { from { opacity:0 } to { opacity:1 } }
@@ -165,13 +226,17 @@ body {
 @keyframes slideModal { from { transform:translateY(100%) } to { transform:translateY(0) } }
 @keyframes spin     { from { transform:rotate(0deg) } to { transform:rotate(360deg) } }
 @keyframes pulse    { 0%,100% { opacity:1 } 50% { opacity:.5 } }
+@keyframes blink    { 50% { opacity:.35 } }
 
 .anim-fadeIn  { animation: fadeIn  var(--transition-slow) ease both; }
 .anim-slideUp { animation: slideUp var(--transition-slow) ease both; }
 .anim-scaleIn { animation: scaleIn var(--transition-slow) ease both; }
 
-/* ── Micro-interaction: press scale ─────────────────────────────────────────── */
-.pressable:active { transform: scale(0.97); transition: transform 80ms ease; }
+/* LED de estado parpadeante (usable en headers) */
+.led { width:8px; height:8px; border-radius:50%; background:var(--lime); box-shadow:0 0 8px var(--lime); animation:blink 2s infinite; display:inline-block; }
+
+/* ── Micro-interaction: press hunde la sombra dura ──────────────────────────── */
+.pressable:active { transform: translate(3px,3px); transition: transform 70ms ease; }
 
 /* ── Scrollbar ───────────────────────────────────────────────────────────────── */
 ::-webkit-scrollbar { width:6px; height:6px; }
