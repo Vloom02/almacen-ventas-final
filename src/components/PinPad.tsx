@@ -8,11 +8,12 @@ import { LockClosedIcon } from './ui/icons';
 
 interface Props {
   mode: 'unlock' | 'create';
+  titulo?: string;        // opcional: reemplaza el título del primer paso (ej. "Nuevo PIN de dueño")
   onSuccess: (pin: string) => Promise<boolean>;
   onCancel: () => void;
 }
 
-const PinPad: React.FC<Props> = ({ mode, onSuccess, onCancel }) => {
+const PinPad: React.FC<Props> = ({ mode, titulo: tituloProp, onSuccess, onCancel }) => {
   const [pin, setPin]       = useState('');
   const [confirm, setConfirm] = useState('');
   const [stage, setStage]   = useState<'first' | 'confirm'>('first'); // solo para create
@@ -27,7 +28,7 @@ const PinPad: React.FC<Props> = ({ mode, onSuccess, onCancel }) => {
 
   const titulo =
     mode === 'unlock' ? 'Ingresá tu PIN' :
-    stage === 'first' ? 'Creá un PIN de dueño' : 'Repetí el PIN';
+    stage === 'first' ? (tituloProp ?? 'Creá un PIN de dueño') : 'Repetí el PIN';
   const subtitulo =
     mode === 'unlock' ? 'Acceso a secciones del dueño' :
     stage === 'first' ? 'Mínimo 4 dígitos. Lo vas a necesitar para ver caja, reportes y deudas.' :

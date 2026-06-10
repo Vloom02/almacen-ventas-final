@@ -7,12 +7,14 @@
 // El arqueo de efectivo es POR TURNO. Solo lectura sobre ventas_ventas.
 // ═══════════════════════════════════════════════════════════════════════════
 import React, { useEffect, useState, useMemo, useCallback } from 'react';
-import { IonContent } from '@ionic/react';
+import { IonContent, IonToast } from '@ionic/react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
+import { useOwner } from '../context/OwnerContext';
 import { formatMoney } from '../context/VentasContext';
 import { Card, StatCard, SectionTitle, EmptyState, Skeleton } from '../components/ui';
-import { BanknotesIcon, ArrowPathIcon } from '../components/ui/icons';
+import { BanknotesIcon, ArrowPathIcon, LockClosedIcon } from '../components/ui/icons';
+import PinPad from '../components/PinPad';
 
 interface VentaRow { id: string; total: number; metodo_pago: string; fecha: string; fiado: boolean; }
 type TurnoId = 'manana' | 'tarde' | 'noche';
@@ -57,10 +59,13 @@ const metodoLabel = (k: string) =>
 
 const CierrePage: React.FC = () => {
   const { comercio, sucursalActiva } = useAuth();
+  const { setPin } = useOwner();
   const [ventas, setVentas]   = useState<VentaRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [efectivoContado, setEfectivoContado] = useState('');
   const [selTurno, setSelTurno] = useState<TurnoId>(() => turnoActual(new Date()));
+  const [showPinPad, setShowPinPad] = useState(false);
+  const [pinToast, setPinToast] = useState(false);
 
   const turno = TURNOS.find(t => t.id === selTurno)!;
   const { inicio, fin } = useMemo(() => rangoTurno(turno, new Date()), [turno]);
@@ -201,7 +206,36 @@ const CierrePage: React.FC = () => {
             </Card>
           </>
         )}
+
+        {/* Seguridad: cambiar el PIN de dueño (la pestaña ya exige modo dueño) */}
+        <Card style={{ marginTop: 14 }}>
+          <SectionTitle>Seguridad</SectionTitle>
+          <button
+            type="button"
+            onClick={() => setShowPinPad(true)}
+            className="pressable"
+            style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '11px', border: '1px solid var(--border)', borderRadius: 'var(--radius)', background: 'var(--surface-2)', color: 'var(--text)', fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
+            <LockClosedIcon size={16} color="var(--color-primary)" /> Cambiar PIN de dueño
+          </button>
+          <p style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 8, textAlign: 'center' }}>
+            El PIN protege Dashboard, Caja, Historial y Deudas.
+          </p>
+        </Card>
       </div>
+
+      {showPinPad && (
+        <PinPad
+          mode="create"
+          titulo="Nuevo PIN de dueño"
+          onSuccess={async (pin) => {
+            const ok = await setPin(pin);
+            if (ok) { setShowPinPad(false); setPinToast(true); }
+            return ok;
+          }}
+          onCancel={() => setShowPinPad(false)}
+        />
+      )}
+      <IonToast isOpen={pinToast} onDidDismiss={() => setPinToast(false)} message="PIN actualizado" duration={2200} position="top" color="success" />
     </IonContent>
   );
 };
