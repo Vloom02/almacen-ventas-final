@@ -90,6 +90,8 @@ create policy "acceso pagos propios" on ventas_pagos
   );
 
 -- Registra un pago parcial y, si cubre la deuda, la marca como saldada. Atómico.
+-- IDEMPOTENTE por pago_id (opcional): si el cliente reintenta (outbox offline)
+-- con el mismo id, no inserta dos veces el pago.
 create or replace function registrar_pago_fiado(p jsonb)
 returns jsonb
 language plpgsql
@@ -97,10 +99,12 @@ security definer
 set search_path = public, pg_temp
 as $$
 declare
+  v_pago     uuid := coalesce((p->>'pago_id')::uuid, gen_random_uuid());
   v_deuda    uuid := (p->>'deuda_id')::uuid;
   v_comercio uuid := (p->>'comercio_id')::uuid;
   v_monto    numeric := coalesce((p->>'monto')::numeric, 0);
   v_usuario  text := nullif(p->>'usuario','');
+  v_fecha    timestamptz := coalesce((p->>'fecha')::timestamptz, now());
   v_d        record;
   v_pagado   numeric;
 begin
@@ -116,7 +120,8 @@ begin
   end if;
 
   insert into ventas_pagos (id, comercio_id, deuda_id, monto, usuario, fecha)
-    values (gen_random_uuid(), v_comercio, v_deuda, v_monto, v_usuario, now());
+    values (v_pago, v_comercio, v_deuda, v_monto, v_usuario, v_fecha)
+    on conflict (id) do nothing;
 
   select coalesce(sum(monto), 0) into v_pagado from ventas_pagos where deuda_id = v_deuda;
   if v_pagado >= v_d.monto then

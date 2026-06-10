@@ -9,6 +9,8 @@ export interface VentaExport {
   metodo_pago: string;
   cliente: string;
   fiado?: boolean;
+  usuario?: string;
+  descuento?: number;
 }
 
 const METODOS: Record<string, string> = {
@@ -21,7 +23,7 @@ function celda(v: string | number): string {
 }
 
 export function ventasACSV(ventas: VentaExport[]): string {
-  const header = ['Fecha', 'Hora', 'Total', 'Método', 'Cliente', 'Fiado'];
+  const header = ['Fecha', 'Hora', 'Usuario', 'Cliente', 'Método', 'Descuento', 'Total', 'Fiado'];
   const rows = ventas
     .slice()
     .sort((a, b) => b.fecha.localeCompare(a.fecha))
@@ -30,9 +32,11 @@ export function ventasACSV(ventas: VentaExport[]): string {
       return [
         d.toLocaleDateString('es-AR'),
         d.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' }),
-        v.total,
-        METODOS[v.metodo_pago] ?? v.metodo_pago,
+        v.usuario ?? '',
         v.cliente ?? '',
+        METODOS[v.metodo_pago] ?? v.metodo_pago,
+        v.descuento ?? 0,
+        v.total,
         v.fiado ? 'Sí' : 'No',
       ];
     });

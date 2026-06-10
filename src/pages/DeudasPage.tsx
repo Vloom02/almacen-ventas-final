@@ -4,6 +4,8 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { IonContent, IonToast, useIonViewWillEnter } from '@ionic/react';
 import { supabase } from '../lib/supabase';
+import { openDB, enqueueOutbox } from '../lib/outbox';
+import { uuid } from '../lib/ventas-engine';
 import { useAuth } from '../context/AuthContext';
 import { formatMoney } from '../context/VentasContext';
 import { Card, Badge, EmptyState, Skeleton } from '../components/ui';
@@ -45,19 +47,36 @@ const DeudasPage: React.FC = () => {
   const saldoDe = (d: DeudaRow) => Math.max(0, d.monto - (pagos[d.id] ?? 0));
 
   // Registra un abono (parcial o total). monto = remaining → salda la deuda.
+  // El pago lleva id generado acá: si hay que reintentar (outbox offline), el
+  // server lo detecta como duplicado y no lo cobra dos veces.
   const registrarPago = async (d: DeudaRow, monto: number) => {
     if (!comercio || monto <= 0) return;
-    const { data, error } = await supabase.rpc('registrar_pago_fiado', {
-      p: { deuda_id: d.id, comercio_id: comercio.id, monto, usuario: miembro?.nombre ?? null },
-    });
-    if (error) { setToast({ show: true, msg: 'No se pudo registrar el pago (¿sin conexión?)', color: 'danger' }); return; }
-    const res = data as { saldada?: boolean; saldo?: number };
-    if (res?.saldada) {
-      setDeudas(x => x.filter(y => y.id !== d.id));
-      setToast({ show: true, msg: `${d.cliente} saldó su deuda 🎉`, color: 'success' });
-    } else {
-      setPagos(p => ({ ...p, [d.id]: (p[d.id] ?? 0) + monto }));
-      setToast({ show: true, msg: `Pago de ${formatMoney(monto)} · saldo ${formatMoney(res?.saldo ?? 0)}`, color: 'success' });
+    const pagoId = uuid();
+    const saldaria = monto >= saldoDe(d);
+
+    const aplicarLocal = (msgExtra = '') => {
+      if (saldaria) {
+        setDeudas(x => x.filter(y => y.id !== d.id));
+        setToast({ show: true, msg: `${d.cliente} saldó su deuda 🎉${msgExtra}`, color: 'success' });
+      } else {
+        setPagos(p => ({ ...p, [d.id]: (p[d.id] ?? 0) + monto }));
+        setToast({ show: true, msg: `Pago de ${formatMoney(monto)} registrado${msgExtra}`, color: 'success' });
+      }
+    };
+
+    if (navigator.onLine) {
+      const { error } = await supabase.rpc('registrar_pago_fiado', {
+        p: { pago_id: pagoId, deuda_id: d.id, comercio_id: comercio.id, monto, usuario: miembro?.nombre ?? null },
+      });
+      if (!error) { aplicarLocal(); return; }
+      // Falló online: cae al outbox.
+    }
+    try {
+      await openDB();
+      await enqueueOutbox('pago_fiado', { pagoId, deudaId: d.id, comercioId: comercio.id, monto, usuario: miembro?.nombre ?? null, fecha: Date.now() });
+      aplicarLocal(' (offline, se sincroniza)');
+    } catch {
+      setToast({ show: true, msg: 'No se pudo registrar el pago', color: 'danger' });
     }
   };
 

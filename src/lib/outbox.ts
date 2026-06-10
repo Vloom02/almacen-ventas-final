@@ -61,6 +61,23 @@ export interface OfflineVentaPayload {
   cart: CartItem[];
 }
 
+// Anulación de venta encolada offline (el RPC es idempotente por venta_id).
+export interface OfflineAnulacionPayload {
+  ventaId: string;
+  comercioId: string;
+  usuario: string | null;
+}
+
+// Pago de fiado encolado offline (idempotente por pagoId).
+export interface OfflinePagoPayload {
+  pagoId: string;
+  deudaId: string;
+  comercioId: string;
+  monto: number;
+  usuario: string | null;
+  fecha: number;
+}
+
 // ─── Flush con guarda contra solapamiento ─────────────────────────────────────
 let flushing = false;
 // Tope ALTO: el transitorio se reintenta muchas veces; el permanente va a cuarentena ya.
@@ -85,7 +102,9 @@ export async function flushOutbox(): Promise<number> {
     for (const item of items) {
       if (item.bloqueado) continue; // en cuarentena: no se reintenta hasta acción manual
       try {
-        if (item.kind === 'venta') await syncVentaOffline(item.payload as OfflineVentaPayload);
+        if (item.kind === 'venta')      await syncVentaOffline(item.payload as OfflineVentaPayload);
+        if (item.kind === 'anulacion')  await syncAnulacionOffline(item.payload as OfflineAnulacionPayload);
+        if (item.kind === 'pago_fiado') await syncPagoOffline(item.payload as OfflinePagoPayload);
         await idbDelete('outbox', item.id!);
         processed++;
       } catch (err) {
@@ -131,6 +150,25 @@ async function syncVentaOffline(p: OfflineVentaPayload): Promise<void> {
       p.ventaId,
       new Date(p.fecha).toISOString(),
     ),
+  });
+  if (error) throw new Error(error.message);
+}
+
+// Anulación: el RPC devuelve `duplicada: true` si ya estaba anulada → reintentar es seguro.
+async function syncAnulacionOffline(p: OfflineAnulacionPayload): Promise<void> {
+  const { error } = await supabase.rpc('anular_venta', {
+    p: { venta_id: p.ventaId, comercio_id: p.comercioId, usuario: p.usuario },
+  });
+  if (error) throw new Error(error.message);
+}
+
+// Pago de fiado: idempotente por pago_id (on conflict do nothing en el server).
+async function syncPagoOffline(p: OfflinePagoPayload): Promise<void> {
+  const { error } = await supabase.rpc('registrar_pago_fiado', {
+    p: {
+      pago_id: p.pagoId, deuda_id: p.deudaId, comercio_id: p.comercioId,
+      monto: p.monto, usuario: p.usuario, fecha: new Date(p.fecha).toISOString(),
+    },
   });
   if (error) throw new Error(error.message);
 }
