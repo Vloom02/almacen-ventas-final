@@ -11,6 +11,7 @@ import { IonContent, IonToast } from '@ionic/react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import { useOwner } from '../context/OwnerContext';
+import { openDB, getLocalSetting, setLocalSetting } from '../lib/outbox';
 import { formatMoney } from '../context/VentasContext';
 import { Card, StatCard, SectionTitle, EmptyState, Skeleton } from '../components/ui';
 import { BanknotesIcon, ArrowPathIcon, LockClosedIcon } from '../components/ui/icons';
@@ -20,11 +21,18 @@ interface VentaRow { id: string; total: number; metodo_pago: string; fecha: stri
 type TurnoId = 'manana' | 'tarde' | 'noche';
 interface Turno { id: TurnoId; nombre: string; emoji: string; startHour: number; endHour: number; }
 
-const TURNOS: Turno[] = [
-  { id: 'manana', nombre: 'Mañana', emoji: '🌅', startHour: 6,  endHour: 14 },
-  { id: 'tarde',  nombre: 'Tarde',  emoji: '☀️', startHour: 14, endHour: 22 },
-  { id: 'noche',  nombre: 'Noche',  emoji: '🌙', startHour: 22, endHour: 6  },
-];
+// Horarios de turno CONFIGURABLES (hora de inicio de cada uno; el fin es el
+// inicio del siguiente, y la noche termina donde arranca la mañana del otro día).
+export interface HorasTurnos { manana: number; tarde: number; noche: number; }
+export const HORAS_DEFAULT: HorasTurnos = { manana: 6, tarde: 14, noche: 22 };
+
+export function armarTurnos(h: HorasTurnos): Turno[] {
+  return [
+    { id: 'manana', nombre: 'Mañana', emoji: '🌅', startHour: h.manana, endHour: h.tarde },
+    { id: 'tarde',  nombre: 'Tarde',  emoji: '☀️', startHour: h.tarde,  endHour: h.noche },
+    { id: 'noche',  nombre: 'Noche',  emoji: '🌙', startHour: h.noche,  endHour: h.manana },
+  ];
+}
 
 function rangoTurno(turno: Turno, ahora: Date): { inicio: Date; fin: Date } {
   const inicio = new Date(ahora);
@@ -34,23 +42,24 @@ function rangoTurno(turno: Turno, ahora: Date): { inicio: Date; fin: Date } {
     fin.setHours(turno.endHour, 0, 0, 0);
     return { inicio, fin };
   }
+  // Noche: cruza la medianoche → [inicio noche, inicio mañana del día siguiente)
   const h = ahora.getHours();
-  if (h >= 22) {
-    inicio.setHours(22, 0, 0, 0);
+  if (h >= turno.startHour) {
+    inicio.setHours(turno.startHour, 0, 0, 0);
     fin.setDate(fin.getDate() + 1);
-    fin.setHours(6, 0, 0, 0);
+    fin.setHours(turno.endHour, 0, 0, 0);
   } else {
     inicio.setDate(inicio.getDate() - 1);
-    inicio.setHours(22, 0, 0, 0);
-    fin.setHours(6, 0, 0, 0);
+    inicio.setHours(turno.startHour, 0, 0, 0);
+    fin.setHours(turno.endHour, 0, 0, 0);
   }
   return { inicio, fin };
 }
 
-function turnoActual(ahora: Date): TurnoId {
+export function turnoActual(ahora: Date, hs: HorasTurnos = HORAS_DEFAULT): TurnoId {
   const h = ahora.getHours();
-  if (h >= 6 && h < 14) return 'manana';
-  if (h >= 14 && h < 22) return 'tarde';
+  if (h >= hs.manana && h < hs.tarde) return 'manana';
+  if (h >= hs.tarde && h < hs.noche) return 'tarde';
   return 'noche';
 }
 
@@ -66,7 +75,33 @@ const CierrePage: React.FC = () => {
   const [selTurno, setSelTurno] = useState<TurnoId>(() => turnoActual(new Date()));
   const [showPinPad, setShowPinPad] = useState(false);
   const [pinToast, setPinToast] = useState(false);
+  const [horas, setHoras] = useState<HorasTurnos>(HORAS_DEFAULT);
+  const [editHoras, setEditHoras] = useState(false);
 
+  // Cargar los horarios elegidos por el usuario (persisten en este dispositivo).
+  useEffect(() => {
+    (async () => {
+      try {
+        await openDB();
+        const guardado = await getLocalSetting('horas-turnos');
+        if (guardado) {
+          const h = JSON.parse(guardado) as HorasTurnos;
+          if (h.manana < h.tarde && h.tarde < h.noche) {
+            setHoras(h);
+            setSelTurno(turnoActual(new Date(), h));
+          }
+        }
+      } catch { /* defaults */ }
+    })();
+  }, []);
+
+  const guardarHoras = (h: HorasTurnos) => {
+    setHoras(h);
+    setSelTurno(turnoActual(new Date(), h));
+    openDB().then(() => setLocalSetting('horas-turnos', JSON.stringify(h))).catch(() => {});
+  };
+
+  const TURNOS = useMemo(() => armarTurnos(horas), [horas]);
   const turno = TURNOS.find(t => t.id === selTurno)!;
   const { inicio, fin } = useMemo(() => rangoTurno(turno, new Date()), [turno]);
 
@@ -103,7 +138,7 @@ const CierrePage: React.FC = () => {
   const contado = parseFloat(efectivoContado) || 0;
   const diferencia = efectivoContado === '' ? null : contado - totalEfectivo;
 
-  const esTurnoActual = selTurno === turnoActual(new Date());
+  const esTurnoActual = selTurno === turnoActual(new Date(), horas);
   const fmtHora = (d: Date) => d.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
 
   return (
@@ -123,7 +158,7 @@ const CierrePage: React.FC = () => {
         <div style={{ display: 'flex', gap: 6, marginBottom: 14 }}>
           {TURNOS.map(t => {
             const activo = t.id === selTurno;
-            const esActual = t.id === turnoActual(new Date());
+            const esActual = t.id === turnoActual(new Date(), horas);
             return (
               <button key={t.id} onClick={() => setSelTurno(t.id)}
                 style={{
@@ -139,6 +174,41 @@ const CierrePage: React.FC = () => {
               </button>
             );
           })}
+        </div>
+
+        {/* Horarios configurables */}
+        <div style={{ marginBottom: 14 }}>
+          <button type="button" onClick={() => setEditHoras(!editHoras)}
+            style={{ background: 'none', border: 'none', fontSize: 12, color: 'var(--text-2)', cursor: 'pointer', fontFamily: 'inherit', padding: 0, fontWeight: 600 }}>
+            ⏰ {editHoras ? 'Cerrar editor de horarios' : 'Editar horarios de turno'}
+          </button>
+          {editHoras && (
+            <Card style={{ marginTop: 8, padding: 12 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 8 }}>
+                {([['manana', '🌅 Mañana'], ['tarde', '☀️ Tarde'], ['noche', '🌙 Noche']] as [keyof HorasTurnos, string][]).map(([k, lbl]) => (
+                  <div key={k}>
+                    <label style={{ fontSize: 11, color: 'var(--text-2)', display: 'block', marginBottom: 4 }}>{lbl} desde</label>
+                    <select
+                      value={horas[k]}
+                      aria-label={`Hora de inicio de ${lbl}`}
+                      onChange={e => {
+                        const v = parseInt(e.target.value, 10);
+                        const next = { ...horas, [k]: v };
+                        if (next.manana < next.tarde && next.tarde < next.noche) guardarHoras(next);
+                      }}
+                      style={{ width: '100%', padding: 8, fontSize: 14, fontFamily: 'var(--font-mono)', background: 'var(--surface)', color: 'var(--text)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)' }}>
+                      {Array.from({ length: 24 }, (_, h) => (
+                        <option key={h} value={h}>{String(h).padStart(2, '0')}:00</option>
+                      ))}
+                    </select>
+                  </div>
+                ))}
+              </div>
+              <p style={{ fontSize: 11, color: 'var(--text-3)', margin: '10px 0 0', lineHeight: 1.5 }}>
+                La noche termina donde arranca la mañana del día siguiente. Los horarios deben ir en orden (mañana &lt; tarde &lt; noche); si una opción no se guarda, ajustá primero los otros turnos.
+              </p>
+            </Card>
+          )}
         </div>
 
         {loading ? (

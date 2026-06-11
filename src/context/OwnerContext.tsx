@@ -42,10 +42,9 @@ export const OwnerProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       if (!comercio) { setLoading(false); return; }
       setLoading(true);
       try {
-        const { data } = await supabase
-          .from('ventas_config').select('pin_hash')
-          .eq('comercio_id', comercio.id).maybeSingle();
-        setHasPin(!!data?.pin_hash);
+        // RPC: los miembros ya no leen el hash directamente (hardening del PIN).
+        const { data } = await supabase.rpc('tiene_pin', { p: { comercio_id: comercio.id } });
+        setHasPin(data === true);
       } catch {
         setHasPin(false);
       }
@@ -94,12 +93,13 @@ export const OwnerProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   const tryUnlock = useCallback(async (pin: string) => {
     if (!comercio) return false;
     try {
-      const { data } = await supabase
-        .from('ventas_config').select('pin_hash')
-        .eq('comercio_id', comercio.id).maybeSingle();
-      if (!data?.pin_hash) return false;
-      const hash = await sha256(pin);
-      if (hash === data.pin_hash) { setUnlocked(true); return true; }
+      // Verificación SERVER-SIDE: el hash nunca viaja al cliente, así un
+      // empleado no puede leerlo y crackear el PIN offline.
+      const { data, error } = await supabase.rpc('verificar_pin', {
+        p: { comercio_id: comercio.id, pin },
+      });
+      if (error) { console.error('[owner] tryUnlock:', error.message); return false; }
+      if (data === true) { setUnlocked(true); return true; }
       return false;
     } catch (e) {
       console.error('[owner] tryUnlock error:', e);

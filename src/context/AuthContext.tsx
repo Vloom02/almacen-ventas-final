@@ -20,7 +20,7 @@ interface AuthState {
 
 interface AuthCtx extends AuthState {
   login:    (email: string, password: string) => Promise<string | null>;
-  register: (email: string, password: string, nombre: string, nombreComercio: string) => Promise<string | null>;
+  register: (email: string, password: string, nombre: string, nombreComercio: string, codigoInvitacion?: string) => Promise<string | null>;
   logout:   () => Promise<void>;
   setSucursalActiva: (s: Sucursal) => void;
   planBloqueado: boolean;
@@ -128,8 +128,17 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     return error ? supabaseErrorMsg(error) : null;
   };
 
-  const register = async (email: string, password: string, nombre: string, nombreComercio: string) => {
-    const { error } = await signUp(email, password, nombre, nombreComercio);
+  const register = async (email: string, password: string, nombre: string, nombreComercio: string, codigoInvitacion?: string) => {
+    const codigo = (codigoInvitacion ?? '').trim().toUpperCase();
+    // Con código: validar ANTES de crear la cuenta (un código vencido no debe
+    // terminar creando un comercio propio por accidente).
+    if (codigo) {
+      const { data, error: e } = await supabase.rpc('validar_invitacion', { p: { codigo } });
+      if (e || !(data as { ok?: boolean })?.ok) {
+        return 'El código de invitación no es válido o ya venció. Pedile uno nuevo al dueño.';
+      }
+    }
+    const { error } = await signUp(email, password, nombre, nombreComercio, codigo || undefined);
     return error ? supabaseErrorMsg(error) : null;
   };
 
