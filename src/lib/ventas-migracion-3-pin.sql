@@ -33,10 +33,12 @@ grant  execute on function tiene_pin(jsonb) to authenticated;
 
 -- Verificar el PIN SIN exponer el hash (mismo formato que el cliente:
 -- hex minúscula de SHA-256).
+-- search_path incluye `extensions`: pgcrypto (digest) vive ahí en Supabase.
+-- (Sin esto, digest() no se resuelve y la verificación falla SIEMPRE.)
 create or replace function verificar_pin(p jsonb)
 returns boolean
 language plpgsql security definer
-set search_path = public, pg_temp
+set search_path = public, extensions, pg_temp
 as $$
 declare
   v_comercio uuid := (p->>'comercio_id')::uuid;
