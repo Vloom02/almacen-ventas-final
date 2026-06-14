@@ -8,9 +8,11 @@ import { VentasProvider } from './context/VentasContext';
 import { ThemeProvider } from './context/ThemeContext';
 import { FontScaleProvider } from './context/FontScaleContext';
 import { OwnerProvider } from './context/OwnerContext';
+import { EmpleadoProvider, useEmpleado } from './context/EmpleadoContext';
 import OwnerGuard from './components/OwnerGuard';
 import LoginScreen from './components/LoginScreen';
 import OnboardingVentas from './components/OnboardingVentas';
+import CajeroGate from './components/CajeroGate';
 import VentaPage from './pages/VentaPage'; // eager: es la pantalla de inicio
 // Páginas secundarias: lazy → bundle inicial más liviano / arranque más rápido
 const DashboardPage = lazy(() => import('./pages/DashboardPage'));
@@ -18,6 +20,7 @@ const StockPage     = lazy(() => import('./pages/StockPage'));
 const CierrePage    = lazy(() => import('./pages/CierrePage'));
 const HistorialPage = lazy(() => import('./pages/HistorialPage'));
 const DeudasPage    = lazy(() => import('./pages/DeudasPage'));
+const CajerosPage   = lazy(() => import('./pages/CajerosPage'));
 
 import { ShoppingCartIcon, ChartBarIcon, CubeIcon, ClipboardIcon, BookOpenIcon, BanknotesIcon } from './components/ui/icons';
 
@@ -53,6 +56,7 @@ const Tabs: React.FC = () => (
       <Route path="/caja"       exact render={() => <Suspense fallback={<PageLoader />}><OwnerGuard titulo="Cierre de caja"><CierrePage /></OwnerGuard></Suspense>} />
       <Route path="/historial"  exact render={() => <Suspense fallback={<PageLoader />}><OwnerGuard titulo="Historial"><HistorialPage /></OwnerGuard></Suspense>} />
       <Route path="/deudas"     exact render={() => <Suspense fallback={<PageLoader />}><OwnerGuard titulo="Deudas"><DeudasPage /></OwnerGuard></Suspense>} />
+      <Route path="/cajeros"    exact render={() => <Suspense fallback={<PageLoader />}><OwnerGuard titulo="Cajeros"><CajerosPage /></OwnerGuard></Suspense>} />
       <Route path="/" exact><Redirect to="/venta" /></Route>
     </IonRouterOutlet>
 
@@ -114,12 +118,37 @@ const Gate: React.FC = () => {
   return (
     <VentasProvider>
       <OwnerProvider>
-        <IonReactRouter>
-          <Tabs />
-        </IonReactRouter>
-        <OnboardingVentas />
+        <EmpleadoProvider>
+          <AppConCajero />
+        </EmpleadoProvider>
       </OwnerProvider>
     </VentasProvider>
+  );
+};
+
+// Si el comercio tiene cajeros definidos, exige iniciar turno antes de usar la app.
+const AppConCajero: React.FC = () => {
+  const { cajero, hayEmpleados, cargando } = useEmpleado();
+
+  if (cargando) {
+    return (
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg)' }}>
+        <div style={{ width: 32, height: 32, border: '3px solid var(--border)', borderTopColor: 'var(--color-primary)', borderRadius: '50%', animation: 'spin .7s linear infinite' }} />
+      </div>
+    );
+  }
+
+  if (hayEmpleados && !cajero) {
+    return <IonReactRouter><CajeroGate /></IonReactRouter>;
+  }
+
+  return (
+    <>
+      <IonReactRouter>
+        <Tabs />
+      </IonReactRouter>
+      <OnboardingVentas />
+    </>
   );
 };
 

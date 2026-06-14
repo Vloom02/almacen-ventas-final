@@ -8,6 +8,7 @@
 // ═══════════════════════════════════════════════════════════════════════════
 import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import { IonContent, IonToast } from '@ionic/react';
+import { useHistory } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import { useOwner } from '../context/OwnerContext';
@@ -69,6 +70,7 @@ const metodoLabel = (k: string) =>
 const CierrePage: React.FC = () => {
   const { comercio, sucursalActiva } = useAuth();
   const { setPin } = useOwner();
+  const history = useHistory();
   const [ventas, setVentas]   = useState<VentaRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [efectivoContado, setEfectivoContado] = useState('');
@@ -287,8 +289,15 @@ const CierrePage: React.FC = () => {
             style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '11px', border: '1px solid var(--border)', borderRadius: 'var(--radius)', background: 'var(--surface-2)', color: 'var(--text)', fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
             <LockClosedIcon size={16} color="var(--color-primary)" /> Cambiar PIN de dueño
           </button>
+          <button
+            type="button"
+            onClick={() => history.push('/cajeros')}
+            className="pressable"
+            style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '11px', marginTop: 8, border: '1px solid var(--border)', borderRadius: 'var(--radius)', background: 'var(--surface-2)', color: 'var(--text)', fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
+            👥 Gestionar cajeros
+          </button>
           <p style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 8, textAlign: 'center' }}>
-            El PIN protege Dashboard, Caja, Historial y Deudas.
+            El PIN protege Dashboard, Caja, Historial y Deudas. Los cajeros inician turno con legajo + contraseña.
           </p>
         </Card>
       </div>

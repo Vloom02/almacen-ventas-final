@@ -58,7 +58,7 @@ interface VentasCtx {
   setQty:    (productoId: string, qty: number) => void;
   quitar:    (productoId: string) => void;
   vaciar:    () => void;
-  confirmarVenta: (opts: { metodoPago: string; cliente: string; fiado: boolean; descuento: number }) =>
+  confirmarVenta: (opts: { metodoPago: string; cliente: string; fiado: boolean; descuento: number; usuario?: string | null }) =>
     Promise<{ ok: boolean; msg: string; ventaId?: string }>;
   sincronizar: () => Promise<void>;
 }
@@ -208,11 +208,12 @@ export const VentasProvider: React.FC<{ children: ReactNode }> = ({ children }) 
   const vaciar = useCallback(() => { dispatch({ type: 'SET_CART', payload: [] }); }, []);
 
   // ── Confirmar venta (FEFO) ───────────────────────────────────────────────────
-  const confirmarVenta = useCallback(async (opts: { metodoPago: string; cliente: string; fiado: boolean; descuento: number }) => {
+  const confirmarVenta = useCallback(async (opts: { metodoPago: string; cliente: string; fiado: boolean; descuento: number; usuario?: string | null }) => {
     if (!comercio || !sucursalActiva) return { ok: false, msg: 'Sin sucursal activa' };
     if (state.cart.length === 0) return { ok: false, msg: 'Carrito vacío' };
 
-    const usuario  = miembro?.nombre ?? null;
+    // Atribución: el cajero del turno (si hay), si no la cuenta del comercio.
+    const usuario  = opts.usuario ?? miembro?.nombre ?? null;
     const subtotal = state.cart.reduce((s, c) => s + c.precio * c.qty, 0);
     const total    = Math.max(0, subtotal - opts.descuento);
     // Un único ventaId para online y offline: si el online llega al server pero se

@@ -7,6 +7,7 @@ import { useVentas, formatMoney } from '../context/VentasContext';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { useFontScale, ESCALA_MIN, ESCALA_MAX } from '../context/FontScaleContext';
+import { useEmpleado } from '../context/EmpleadoContext';
 import { useOwner } from '../context/OwnerContext';
 import { Button, Card, SyncBanner, EmptyState } from '../components/ui';
 import {
@@ -29,6 +30,7 @@ const VentaPage: React.FC = () => {
   const { sucursalActiva, sucursales, setSucursalActiva, comercio } = useAuth();
   const { isDark, toggleDark } = useTheme();
   const { escala, setEscala } = useFontScale();
+  const { cajero, cerrarTurno } = useEmpleado();
   const { isUnlocked, lock } = useOwner();
 
   const [scan, setScan]           = useState('');
@@ -84,7 +86,7 @@ const VentaPage: React.FC = () => {
       subtotal, descuento: desc, total, metodoPago, cliente: cliente.trim(), fiado,
     };
     setProc(true);
-    const r = await confirmarVenta({ metodoPago, cliente: cliente.trim(), fiado, descuento: desc });
+    const r = await confirmarVenta({ metodoPago, cliente: cliente.trim(), fiado, descuento: desc, usuario: cajero?.nombre ?? null });
     setProc(false);
     if (r.ok) {
       const txt = armarTicket({
@@ -140,6 +142,14 @@ const VentaPage: React.FC = () => {
               </select>
             ) : (
               <div style={{ fontSize: 12, color: 'var(--text-2)', marginTop: 2 }}>{sucursalActiva?.nombre}</div>
+            )}
+            {cajero && (
+              <button type="button"
+                onClick={() => { if (window.confirm(`¿Cerrar el turno de ${cajero.nombre}?`)) cerrarTurno(); }}
+                className="pressable"
+                style={{ marginTop: 6, display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 10px', borderRadius: 'var(--radius-full)', border: '1px solid var(--color-primary-border)', background: 'var(--color-primary-bg)', color: 'var(--color-primary-dark)', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
+                👤 {cajero.nombre} · salir
+              </button>
             )}
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>

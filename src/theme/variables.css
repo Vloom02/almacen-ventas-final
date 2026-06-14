@@ -147,7 +147,11 @@
 }
 
 /* ── Modo oscuro: TERMINAL negro fósforo ───────────────────────────────────── */
-body.dark {
+/* El tema oscuro va en :root (html), NO en body: Ionic usa shadow DOM y los
+   elementos slotted heredan las variables desde :root, no desde body. Si se
+   define en body.dark, el fondo cambia pero el texto queda con el color claro
+   (títulos ilegibles). Por eso la clase `dark` se togglea en documentElement. */
+:root.dark {
   color-scheme: dark;
 
   --bg:          #0b0d0c;
