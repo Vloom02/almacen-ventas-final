@@ -21,8 +21,9 @@ const CierrePage    = lazy(() => import('./pages/CierrePage'));
 const HistorialPage = lazy(() => import('./pages/HistorialPage'));
 const DeudasPage    = lazy(() => import('./pages/DeudasPage'));
 const CajerosPage   = lazy(() => import('./pages/CajerosPage'));
+const MasPage       = lazy(() => import('./pages/MasPage'));
 
-import { ShoppingCartIcon, ChartBarIcon, CubeIcon, ClipboardIcon, BookOpenIcon, BanknotesIcon } from './components/ui/icons';
+import { ShoppingCartIcon, CubeIcon } from './components/ui/icons';
 
 import '@ionic/react/css/core.css';
 import '@ionic/react/css/normalize.css';
@@ -47,6 +48,14 @@ const TabIcon: React.FC<{ Icon: React.FC<{size?:number;color?:string}>; active?:
   <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Icon size={22} /></span>
 );
 
+// Ícono "Más" (grilla 2x2)
+const EllipsisIcon: React.FC<{ size?: number; color?: string }> = ({ size = 22, color = 'currentColor' }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+    <rect x="3" y="3" width="7" height="7" rx="1.5" /><rect x="14" y="3" width="7" height="7" rx="1.5" />
+    <rect x="3" y="14" width="7" height="7" rx="1.5" /><rect x="14" y="14" width="7" height="7" rx="1.5" />
+  </svg>
+);
+
 const Tabs: React.FC = () => (
   <IonTabs>
     <IonRouterOutlet>
@@ -57,33 +66,23 @@ const Tabs: React.FC = () => (
       <Route path="/historial"  exact render={() => <Suspense fallback={<PageLoader />}><OwnerGuard titulo="Historial"><HistorialPage /></OwnerGuard></Suspense>} />
       <Route path="/deudas"     exact render={() => <Suspense fallback={<PageLoader />}><OwnerGuard titulo="Deudas"><DeudasPage /></OwnerGuard></Suspense>} />
       <Route path="/cajeros"    exact render={() => <Suspense fallback={<PageLoader />}><OwnerGuard titulo="Cajeros"><CajerosPage /></OwnerGuard></Suspense>} />
+      <Route path="/mas"        exact render={() => <Suspense fallback={<PageLoader />}><MasPage /></Suspense>} />
       <Route path="/" exact><Redirect to="/venta" /></Route>
     </IonRouterOutlet>
 
+    {/* Barra despejada: lo de todos los días (Venta, Stock) + hub "Más" con lo del dueño */}
     <IonTabBar slot="bottom" style={{ background: 'var(--surface)', borderTop: '1px solid var(--border)' }}>
       <IonTabButton tab="venta" href="/venta">
         <TabIcon Icon={ShoppingCartIcon} />
-        <IonLabel style={{ fontSize: 10 }}>Venta</IonLabel>
-      </IonTabButton>
-      <IonTabButton tab="dashboard" href="/dashboard">
-        <TabIcon Icon={ChartBarIcon} />
-        <IonLabel style={{ fontSize: 10 }}>Dashboard</IonLabel>
+        <IonLabel style={{ fontSize: 11 }}>Venta</IonLabel>
       </IonTabButton>
       <IonTabButton tab="stock" href="/stock">
         <TabIcon Icon={CubeIcon} />
-        <IonLabel style={{ fontSize: 10 }}>Stock</IonLabel>
+        <IonLabel style={{ fontSize: 11 }}>Stock</IonLabel>
       </IonTabButton>
-      <IonTabButton tab="caja" href="/caja">
-        <TabIcon Icon={BanknotesIcon} />
-        <IonLabel style={{ fontSize: 10 }}>Caja</IonLabel>
-      </IonTabButton>
-      <IonTabButton tab="historial" href="/historial">
-        <TabIcon Icon={ClipboardIcon} />
-        <IonLabel style={{ fontSize: 10 }}>Historial</IonLabel>
-      </IonTabButton>
-      <IonTabButton tab="deudas" href="/deudas">
-        <TabIcon Icon={BookOpenIcon} />
-        <IonLabel style={{ fontSize: 10 }}>Deudas</IonLabel>
+      <IonTabButton tab="mas" href="/mas">
+        <TabIcon Icon={EllipsisIcon} />
+        <IonLabel style={{ fontSize: 11 }}>Más</IonLabel>
       </IonTabButton>
     </IonTabBar>
   </IonTabs>
