@@ -96,6 +96,7 @@ const VentaPage: React.FC = () => {
         folio: (r.ventaId ?? '').replace(/-/g, '').slice(0, 6).toUpperCase() || '------',
         items: snap.items, subtotal: snap.subtotal, descuento: snap.descuento,
         total: snap.total, metodoPago: snap.metodoPago, cliente: snap.cliente, fiado: snap.fiado,
+        cajero: cajero?.nombre, legajo: cajero?.legajo,
       }, formatMoney);
       setTicket(txt);
       setConfirm(false); setCliente(''); setDescuento(''); setFiado(false); setMetodo('efectivo');

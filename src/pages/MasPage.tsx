@@ -61,14 +61,18 @@ const MasPage: React.FC = () => {
             </button>
           </>
         ) : (
-          // Empleado: cierra su caja (arqueo) y recién ahí sale.
-          <div style={{ textAlign: 'center', padding: '24px 0' }}>
+          // Empleado: maneja su caja y cierra al salir.
+          <div style={{ textAlign: 'center', padding: '24px 0', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
             <div style={{ fontSize: 44, marginBottom: 8 }}>🧾</div>
             <p style={{ fontSize: 14, color: 'var(--text-2)', maxWidth: 290, margin: '0 auto 18px', lineHeight: 1.5 }}>
-              Cuando termines tu turno, cerrá la caja: contás el efectivo y queda registrado.
+              Manejá el efectivo de tu turno (apertura, ingresos y egresos) y cerrá la caja al terminar.
             </p>
+            <button type="button" onClick={() => history.push('/caja-turno')} className="pressable"
+              style={{ width: '100%', maxWidth: 320, padding: '13px', borderRadius: 'var(--radius)', border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)', fontSize: 15, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', marginBottom: 10 }}>
+              💵 Caja del turno (apertura / movimientos)
+            </button>
             <button type="button" onClick={() => history.push('/cerrar-caja')} className="pressable"
-              style={{ padding: '13px 28px', borderRadius: 'var(--radius)', border: 'none', background: 'var(--color-primary)', color: '#2a1a00', fontSize: 15, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
+              style={{ width: '100%', maxWidth: 320, padding: '13px', borderRadius: 'var(--radius)', border: 'none', background: 'var(--color-primary)', color: '#2a1a00', fontSize: 15, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
               🧾 Cerrar caja y salir
             </button>
           </div>

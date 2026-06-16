@@ -12,6 +12,7 @@ import { formatMoney } from '../context/VentasContext';
 import { Card, Button, Skeleton } from '../components/ui';
 
 interface VentaRow { total: number; metodo_pago: string; fiado: boolean; }
+interface CajaMov { tipo: 'apertura' | 'ingreso' | 'egreso'; monto: number; }
 
 const metodoLabel = (k: string) =>
   ({ efectivo: '💵 Efectivo', transferencia: '📱 Transferencia', tarjeta: '💳 Tarjeta', qr: '📲 QR' } as Record<string, string>)[k] ?? k;
@@ -28,6 +29,7 @@ const CajeroCierrePage: React.FC = () => {
   }, [cajero?.desde]);
 
   const [ventas, setVentas] = useState<VentaRow[]>([]);
+  const [movs, setMovs] = useState<CajaMov[]>([]);
   const [loading, setLoading] = useState(true);
   const [fondo, setFondo] = useState('');
   const [contado, setContado] = useState('');
@@ -42,6 +44,11 @@ const CajeroCierrePage: React.FC = () => {
         .eq('usuario', cajero.nombre)
         .gte('fecha', desde.toISOString());
       setVentas((data ?? []).filter((v: { anulada?: boolean }) => !v.anulada) as VentaRow[]);
+      // Movimientos de caja del turno (apertura, ingresos, egresos).
+      const { data: mv } = await supabase
+        .from('ventas_caja_mov').select('tipo, monto')
+        .eq('comercio_id', comercio.id).eq('turno_desde', new Date(cajero.desde ?? Date.now()).toISOString());
+      setMovs((mv ?? []) as CajaMov[]);
       setLoading(false);
     })();
   }, [comercio, cajero, desde]);
@@ -53,8 +60,12 @@ const CajeroCierrePage: React.FC = () => {
     return m;
   }, [ventas]);
   const efectivoVentas = porMetodo['efectivo'] ?? 0;
-  const fondoNum = parseFloat(fondo.replace(',', '.')) || 0;
-  const esperado = fondoNum + efectivoVentas;
+  // La apertura registrada manda; si no hay, se puede declarar el fondo a mano.
+  const aperturaMov = movs.find(m => m.tipo === 'apertura');
+  const ingresos = movs.filter(m => m.tipo === 'ingreso').reduce((s, m) => s + m.monto, 0);
+  const egresos = movs.filter(m => m.tipo === 'egreso').reduce((s, m) => s + m.monto, 0);
+  const fondoNum = aperturaMov ? aperturaMov.monto : (parseFloat(fondo.replace(',', '.')) || 0);
+  const esperado = fondoNum + efectivoVentas + ingresos - egresos;
   const contadoNum = parseFloat(contado.replace(',', '.'));
   const diferencia = contado === '' || Number.isNaN(contadoNum) ? null : contadoNum - esperado;
 
@@ -122,11 +133,36 @@ const CajeroCierrePage: React.FC = () => {
             <Card>
               <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 10 }}>Arqueo de efectivo</div>
 
-              <label style={{ fontSize: 13, color: 'var(--text-2)', display: 'block', marginBottom: 4 }}>Fondo inicial (lo que había al empezar)</label>
-              <input type="number" inputMode="decimal" value={fondo} onChange={e => setFondo(e.target.value)} placeholder="0" style={{ ...inputStyle, marginBottom: 12 }} />
+              {aperturaMov ? (
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14, marginBottom: 8 }}>
+                  <span style={{ color: 'var(--text-2)' }}>🔓 Apertura (fondo)</span>
+                  <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 600 }}>{formatMoney(fondoNum)}</span>
+                </div>
+              ) : (
+                <>
+                  <label style={{ fontSize: 13, color: 'var(--text-2)', display: 'block', marginBottom: 4 }}>Fondo inicial (lo que había al empezar)</label>
+                  <input type="number" inputMode="decimal" value={fondo} onChange={e => setFondo(e.target.value)} placeholder="0" style={{ ...inputStyle, marginBottom: 12 }} />
+                </>
+              )}
 
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10, fontSize: 14 }}>
-                <span style={{ color: 'var(--text-2)' }}>Efectivo esperado en caja</span>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14, marginBottom: 4 }}>
+                <span style={{ color: 'var(--text-2)' }}>Efectivo de ventas</span>
+                <span style={{ fontFamily: 'var(--font-mono)' }}>{formatMoney(efectivoVentas)}</span>
+              </div>
+              {ingresos > 0 && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14, marginBottom: 4 }}>
+                  <span style={{ color: 'var(--text-2)' }}>Ingresos de caja</span>
+                  <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--color-primary-dark)' }}>+{formatMoney(ingresos)}</span>
+                </div>
+              )}
+              {egresos > 0 && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14, marginBottom: 4 }}>
+                  <span style={{ color: 'var(--text-2)' }}>Egresos de caja</span>
+                  <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--color-danger)' }}>−{formatMoney(egresos)}</span>
+                </div>
+              )}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', margin: '8px 0 10px', paddingTop: 8, borderTop: '1px solid var(--border)', fontSize: 14 }}>
+                <span style={{ color: 'var(--text-2)', fontWeight: 600 }}>Efectivo esperado</span>
                 <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 700 }}>{formatMoney(esperado)}</span>
               </div>
 

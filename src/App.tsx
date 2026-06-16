@@ -23,6 +23,7 @@ const DeudasPage    = lazy(() => import('./pages/DeudasPage'));
 const CajerosPage   = lazy(() => import('./pages/CajerosPage'));
 const MasPage       = lazy(() => import('./pages/MasPage'));
 const CajeroCierrePage = lazy(() => import('./pages/CajeroCierrePage'));
+const CajaTurnoPage = lazy(() => import('./pages/CajaTurnoPage'));
 
 import { ShoppingCartIcon, CubeIcon } from './components/ui/icons';
 
@@ -69,6 +70,7 @@ const Tabs: React.FC = () => (
       <Route path="/cajeros"    exact render={() => <Suspense fallback={<PageLoader />}><OwnerGuard titulo="Cajeros"><CajerosPage /></OwnerGuard></Suspense>} />
       <Route path="/mas"        exact render={() => <Suspense fallback={<PageLoader />}><MasPage /></Suspense>} />
       <Route path="/cerrar-caja" exact render={() => <Suspense fallback={<PageLoader />}><CajeroCierrePage /></Suspense>} />
+      <Route path="/caja-turno"  exact render={() => <Suspense fallback={<PageLoader />}><CajaTurnoPage /></Suspense>} />
       <Route path="/" exact><Redirect to="/venta" /></Route>
     </IonRouterOutlet>
 
@@ -139,7 +141,9 @@ const AppConCajero: React.FC = () => {
     );
   }
 
-  if (hayEmpleados && !cajero) {
+  // Sin internet no se puede validar el legajo: NO bloqueamos (evita dejar al
+  // cajero trabado si cerró turno offline). Cuando vuelve la red, el gate exige.
+  if (hayEmpleados && !cajero && navigator.onLine) {
     return <IonReactRouter><CajeroGate /></IonReactRouter>;
   }
 

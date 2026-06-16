@@ -48,7 +48,14 @@ export const EmpleadoProvider: React.FC<{ children: ReactNode }> = ({ children }
       try {
         await openDB();
         const saved = await getLocalSetting(KEY);
-        if (saved) { try { setCajero(JSON.parse(saved)); } catch { /* */ } }
+        if (saved) {
+          try {
+            const c = JSON.parse(saved) as CajeroActivo;
+            // Backfill: un cajero viejo sin `desde` rompía el agrupado del turno.
+            if (!c.desde) { c.desde = Date.now(); setLocalSetting(KEY, JSON.stringify(c)).catch(() => {}); }
+            setCajero(c);
+          } catch { /* */ }
+        }
       } catch { /* */ }
       await recargar();
       setCargando(false);
