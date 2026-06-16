@@ -9,7 +9,7 @@ import { useAuth } from './AuthContext';
 import { openDB, getLocalSetting, setLocalSetting } from '../lib/outbox';
 
 export interface EmpleadoVenta { id: string; legajo: string; nombre: string; activo?: boolean; }
-export interface CajeroActivo { id: string; legajo: string; nombre: string; admin?: boolean; }
+export interface CajeroActivo { id: string; legajo: string; nombre: string; admin?: boolean; desde?: number; }
 
 const KEY = 'cajero-activo';
 
@@ -68,7 +68,7 @@ export const EmpleadoProvider: React.FC<{ children: ReactNode }> = ({ children }
       if (error) return 'No se pudo validar (¿sin conexión?)';
       const r = data as { ok?: boolean; id?: string; legajo?: string; nombre?: string };
       if (!r?.ok) return 'Legajo o contraseña incorrectos';
-      const c: CajeroActivo = { id: r.id!, legajo: r.legajo!, nombre: r.nombre! };
+      const c: CajeroActivo = { id: r.id!, legajo: r.legajo!, nombre: r.nombre!, desde: Date.now() };
       setCajero(c); persistir(c);
       return null;
     } catch {
@@ -77,7 +77,7 @@ export const EmpleadoProvider: React.FC<{ children: ReactNode }> = ({ children }
   }, [comercio]);
 
   const entrarComoAdmin = useCallback((nombre = 'Administrador') => {
-    const c: CajeroActivo = { id: 'admin', legajo: '—', nombre, admin: true };
+    const c: CajeroActivo = { id: 'admin', legajo: '—', nombre, admin: true, desde: Date.now() };
     setCajero(c); persistir(c);
   }, []);
 

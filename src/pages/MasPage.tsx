@@ -61,15 +61,15 @@ const MasPage: React.FC = () => {
             </button>
           </>
         ) : (
-          // Empleado: solo puede cerrar su turno.
+          // Empleado: cierra su caja (arqueo) y recién ahí sale.
           <div style={{ textAlign: 'center', padding: '24px 0' }}>
-            <div style={{ fontSize: 44, marginBottom: 8 }}>👤</div>
-            <p style={{ fontSize: 14, color: 'var(--text-2)', maxWidth: 280, margin: '0 auto 18px', lineHeight: 1.5 }}>
-              Las secciones del negocio son solo para el dueño. Cuando termines, cerrá tu turno.
+            <div style={{ fontSize: 44, marginBottom: 8 }}>🧾</div>
+            <p style={{ fontSize: 14, color: 'var(--text-2)', maxWidth: 290, margin: '0 auto 18px', lineHeight: 1.5 }}>
+              Cuando termines tu turno, cerrá la caja: contás el efectivo y queda registrado.
             </p>
-            <button type="button" onClick={() => { if (window.confirm('¿Cerrar tu turno?')) cerrarTurno(); }} className="pressable"
+            <button type="button" onClick={() => history.push('/cerrar-caja')} className="pressable"
               style={{ padding: '13px 28px', borderRadius: 'var(--radius)', border: 'none', background: 'var(--color-primary)', color: '#2a1a00', fontSize: 15, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
-              Cerrar turno
+              🧾 Cerrar caja y salir
             </button>
           </div>
         )}

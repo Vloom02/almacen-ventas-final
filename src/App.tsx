@@ -22,6 +22,7 @@ const HistorialPage = lazy(() => import('./pages/HistorialPage'));
 const DeudasPage    = lazy(() => import('./pages/DeudasPage'));
 const CajerosPage   = lazy(() => import('./pages/CajerosPage'));
 const MasPage       = lazy(() => import('./pages/MasPage'));
+const CajeroCierrePage = lazy(() => import('./pages/CajeroCierrePage'));
 
 import { ShoppingCartIcon, CubeIcon } from './components/ui/icons';
 
@@ -67,6 +68,7 @@ const Tabs: React.FC = () => (
       <Route path="/deudas"     exact render={() => <Suspense fallback={<PageLoader />}><OwnerGuard titulo="Deudas"><DeudasPage /></OwnerGuard></Suspense>} />
       <Route path="/cajeros"    exact render={() => <Suspense fallback={<PageLoader />}><OwnerGuard titulo="Cajeros"><CajerosPage /></OwnerGuard></Suspense>} />
       <Route path="/mas"        exact render={() => <Suspense fallback={<PageLoader />}><MasPage /></Suspense>} />
+      <Route path="/cerrar-caja" exact render={() => <Suspense fallback={<PageLoader />}><CajeroCierrePage /></Suspense>} />
       <Route path="/" exact><Redirect to="/venta" /></Route>
     </IonRouterOutlet>
 

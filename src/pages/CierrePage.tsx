@@ -19,6 +19,7 @@ import { BanknotesIcon, ArrowPathIcon, LockClosedIcon } from '../components/ui/i
 import PinPad from '../components/PinPad';
 
 interface VentaRow { id: string; total: number; metodo_pago: string; fecha: string; fiado: boolean; }
+interface CierreRow { id: string; cajero_nombre: string; hasta: string; total: number; diferencia: number; efectivo_contado: number; }
 type TurnoId = 'manana' | 'tarde' | 'noche';
 interface Turno { id: TurnoId; nombre: string; emoji: string; startHour: number; endHour: number; }
 
@@ -123,6 +124,19 @@ const CierrePage: React.FC = () => {
 
   useEffect(() => { load(); }, [load]);
   useEffect(() => { setEfectivoContado(''); }, [selTurno]);
+
+  // Cierres de caja de los cajeros (los registra cada uno al cerrar su turno).
+  const [cierres, setCierres] = useState<CierreRow[]>([]);
+  useEffect(() => {
+    if (!comercio) return;
+    (async () => {
+      const { data } = await supabase
+        .from('ventas_cierres').select('id, cajero_nombre, hasta, total, diferencia, efectivo_contado')
+        .eq('comercio_id', comercio.id)
+        .order('hasta', { ascending: false }).limit(10);
+      setCierres((data ?? []) as CierreRow[]);
+    })();
+  }, [comercio, ventas]);
 
   const total      = useMemo(() => ventas.reduce((s, v) => s + v.total, 0), [ventas]);
   const cantidad   = ventas.length;
@@ -277,6 +291,25 @@ const CierrePage: React.FC = () => {
               )}
             </Card>
           </>
+        )}
+
+        {/* Cierres de caja de los cajeros */}
+        {cierres.length > 0 && (
+          <Card style={{ marginTop: 14 }}>
+            <SectionTitle>Cierres de cajeros</SectionTitle>
+            {cierres.map((c, i) => (
+              <div key={c.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '9px 0', borderBottom: i < cierres.length - 1 ? '1px solid var(--border)' : 'none' }}>
+                <div>
+                  <div style={{ fontSize: 14, fontWeight: 600 }}>{c.cajero_nombre || '—'}</div>
+                  <div style={{ fontSize: 12, color: 'var(--text-3)' }}>{new Date(c.hasta).toLocaleString('es-AR', { dateStyle: 'short', timeStyle: 'short' })} · {formatMoney(c.total)}</div>
+                </div>
+                <span style={{ fontSize: 13, fontWeight: 700, fontFamily: 'var(--font-mono)',
+                  color: Math.abs(c.diferencia) < 0.01 ? 'var(--color-primary-dark)' : c.diferencia < 0 ? 'var(--color-danger)' : 'var(--color-info-dark)' }}>
+                  {Math.abs(c.diferencia) < 0.01 ? 'cuadra' : (c.diferencia > 0 ? '+' : '') + formatMoney(c.diferencia)}
+                </span>
+              </div>
+            ))}
+          </Card>
         )}
 
         {/* Seguridad: cambiar el PIN de dueño (la pestaña ya exige modo dueño) */}
