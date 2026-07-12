@@ -1,5 +1,5 @@
 -- ═══════════════════════════════════════════════════════════════════════════
--- Migración 4 — Hardening de autenticación (auditoría 2026-07-11)
+-- Migración 7 — Hardening de autenticación (auditoría 2026-07-11)
 -- Aditiva e idempotente. Corrige dos hallazgos:
 --   A) Fuerza bruta online: verificar_pin y verificar_empleado_venta no
 --      limitaban intentos → un PIN de 4-6 dígitos se prueba entero vía RPC.
