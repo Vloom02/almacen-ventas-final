@@ -1,6 +1,7 @@
 // ═══════════════════════════════════════════════════════════════════════════
 // Modo Dueño protegido por PIN (escenario cuenta compartida).
-// - El PIN se guarda HASHEADO (SHA-256) en ventas_config, nunca en texto plano.
+// - El PIN se hashea SERVER-SIDE en bcrypt (RPC configurar_pin) y se verifica
+//   server-side con lockout de intentos (RPC verificar_pin, migración 4).
 // - Si no hay PIN configurado, el dueño lo crea la primera vez.
 // - Una vez desbloqueado, se re-bloquea solo tras 5 min de inactividad.
 // ═══════════════════════════════════════════════════════════════════════════
@@ -9,13 +10,6 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from './AuthContext';
 
 const LOCK_MS = 5 * 60 * 1000; // 5 minutos de inactividad
-
-// SHA-256 con la Web Crypto API (disponible en el WebView de Capacitor)
-async function sha256(text: string): Promise<string> {
-  const data = new TextEncoder().encode(text);
-  const buf  = await crypto.subtle.digest('SHA-256', data);
-  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
-}
 
 interface OwnerCtx {
   hasPin: boolean;        // ya hay un PIN configurado en este comercio
@@ -76,9 +70,9 @@ export const OwnerProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   const setPin = useCallback(async (pin: string) => {
     if (!comercio || pin.length < 4) return false;
     try {
-      const pin_hash = await sha256(pin);
-      const { error } = await supabase.from('ventas_config').upsert({
-        comercio_id: comercio.id, pin_hash, updated_at: new Date().toISOString(),
+      // Server-side: hashea en bcrypt y valida que seas el dueño.
+      const { error } = await supabase.rpc('configurar_pin', {
+        p: { comercio_id: comercio.id, pin },
       });
       if (error) { console.error('[owner] setPin:', error.message); return false; }
       setHasPin(true);

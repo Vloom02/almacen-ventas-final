@@ -18,7 +18,10 @@ const METODOS: Record<string, string> = {
 };
 
 function celda(v: string | number): string {
-  const s = String(v ?? '');
+  let s = String(v ?? '');
+  // CSV injection: neutralizar textos que Excel interpretaría como fórmula
+  // (p.ej. cliente "=HYPERLINK(...)"). Solo strings; números intactos.
+  if (typeof v === 'string' && /^[=+\-@\t\r]/.test(s)) s = "'" + s;
   return /[;"\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
 }
 
