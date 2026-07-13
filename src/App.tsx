@@ -24,6 +24,8 @@ const CajerosPage   = lazy(() => import('./pages/CajerosPage'));
 const MasPage       = lazy(() => import('./pages/MasPage'));
 const CajeroCierrePage = lazy(() => import('./pages/CajeroCierrePage'));
 const CajaTurnoPage = lazy(() => import('./pages/CajaTurnoPage'));
+const EstadisticasPage = lazy(() => import('./pages/EstadisticasPage'));
+const PromosPage    = lazy(() => import('./pages/PromosPage'));
 
 import { ShoppingCartIcon, CubeIcon } from './components/ui/icons';
 
@@ -68,6 +70,8 @@ const Tabs: React.FC = () => (
       <Route path="/historial"  exact render={() => <Suspense fallback={<PageLoader />}><OwnerGuard titulo="Historial"><HistorialPage /></OwnerGuard></Suspense>} />
       <Route path="/deudas"     exact render={() => <Suspense fallback={<PageLoader />}><OwnerGuard titulo="Deudas"><DeudasPage /></OwnerGuard></Suspense>} />
       <Route path="/cajeros"    exact render={() => <Suspense fallback={<PageLoader />}><OwnerGuard titulo="Cajeros"><CajerosPage /></OwnerGuard></Suspense>} />
+      <Route path="/estadisticas" exact render={() => <Suspense fallback={<PageLoader />}><OwnerGuard titulo="Estadísticas"><EstadisticasPage /></OwnerGuard></Suspense>} />
+      <Route path="/promos"     exact render={() => <Suspense fallback={<PageLoader />}><OwnerGuard titulo="Promos"><PromosPage /></OwnerGuard></Suspense>} />
       <Route path="/mas"        exact render={() => <Suspense fallback={<PageLoader />}><MasPage /></Suspense>} />
       <Route path="/cerrar-caja" exact render={() => <Suspense fallback={<PageLoader />}><CajeroCierrePage /></Suspense>} />
       <Route path="/caja-turno"  exact render={() => <Suspense fallback={<PageLoader />}><CajaTurnoPage /></Suspense>} />

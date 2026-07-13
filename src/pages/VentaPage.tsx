@@ -17,6 +17,9 @@ import {
 import { Producto } from '../types';
 import { armarTicket } from '../lib/ticket';
 import { Capacitor } from '@capacitor/core';
+import { descuentoPromos, Promo } from '../lib/promos';
+import { openDB, getLocalSetting, setLocalSetting } from '../lib/outbox';
+import { supabase } from '../lib/supabase';
 
 const payOptions = [
   { key: 'efectivo',     label: '💵 Efectivo' },
@@ -48,6 +51,30 @@ const VentaPage: React.FC = () => {
 
   useEffect(() => { setTimeout(() => scanRef.current?.focus(), 200); }, []);
 
+  // Promos activas del comercio (con cache local para vender offline).
+  const [promos, setPromos] = useState<Promo[]>([]);
+  useEffect(() => {
+    if (!comercio) return;
+    (async () => {
+      try {
+        const { data, error } = await supabase.from('ventas_promos')
+          .select('producto_id, tipo, min_cant, pct')
+          .eq('comercio_id', comercio.id).eq('activa', true);
+        if (error) throw error;
+        const ps: Promo[] = (data ?? []).map((r: { producto_id: string; tipo: Promo['tipo']; min_cant: number; pct: number }) =>
+          ({ productoId: r.producto_id, tipo: r.tipo, minCant: r.min_cant, pct: Number(r.pct) }));
+        setPromos(ps);
+        openDB().then(() => setLocalSetting('promos-cache', JSON.stringify(ps))).catch(() => {});
+      } catch {
+        try {
+          await openDB();
+          const raw = await getLocalSetting('promos-cache');
+          if (raw) setPromos(JSON.parse(raw));
+        } catch { /* sin promos offline */ }
+      }
+    })();
+  }, [comercio]);
+
   const toast$ = (msg: string, ok = true) => setToast({ show: true, msg, color: ok ? 'success' : 'danger' });
 
   const handleScan = async (codigo: string) => {
@@ -69,7 +96,9 @@ const VentaPage: React.FC = () => {
   };
 
   const subtotal = state.cart.reduce((s, c) => s + c.precio * c.qty, 0);
-  const desc = Math.min(subtotal, parseFloat(descuento) || 0);
+  const promosCalc = descuentoPromos(state.cart, promos);
+  // El descuento de la venta = promos automáticas + descuento manual, tope subtotal.
+  const desc = Math.min(subtotal, (parseFloat(descuento) || 0) + promosCalc.monto);
   const total = subtotal - desc;
   const totalItems = state.cart.reduce((s, c) => s + c.qty, 0);
 
@@ -283,7 +312,13 @@ const VentaPage: React.FC = () => {
                   <span style={{ fontFamily: 'var(--font-mono)' }}>{formatMoney(c.precio * c.qty)}</span>
                 </div>
               ))}
-              {desc > 0 && <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14, padding: '3px 0', color: 'var(--color-primary-dark)' }}><span>Descuento</span><span style={{ fontFamily: 'var(--font-mono)' }}>-{formatMoney(desc)}</span></div>}
+              {promosCalc.lineas.map(l => (
+                <div key={l.nombre} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, padding: '2px 0', color: 'var(--color-primary-dark)' }}>
+                  <span>🎁 {l.nombre} <span style={{ opacity: 0.7 }}>({l.etiqueta})</span></span>
+                  <span style={{ fontFamily: 'var(--font-mono)' }}>-{formatMoney(l.monto)}</span>
+                </div>
+              ))}
+              {desc > promosCalc.monto && <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14, padding: '3px 0', color: 'var(--color-primary-dark)' }}><span>Descuento manual</span><span style={{ fontFamily: 'var(--font-mono)' }}>-{formatMoney(desc - promosCalc.monto)}</span></div>}
               <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 700, fontSize: 17, paddingTop: 8, marginTop: 6, borderTop: '1px dashed var(--border)' }}>
                 <span>TOTAL</span><span style={{ fontFamily: 'var(--font-mono)' }}>{formatMoney(total)}</span>
               </div>

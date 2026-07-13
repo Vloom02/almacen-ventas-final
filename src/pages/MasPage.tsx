@@ -17,6 +17,8 @@ const TILES: Tile[] = [
   { emoji: '🧾', label: 'Caja',      desc: 'Cierre y arqueo por turno', path: '/caja' },
   { emoji: '📋', label: 'Historial', desc: 'Ventas y devoluciones',      path: '/historial' },
   { emoji: '📒', label: 'Deudas',    desc: 'Fiado y pagos',              path: '/deudas' },
+  { emoji: '📈', label: 'Estadísticas', desc: 'Top vendidos y horas pico', path: '/estadisticas' },
+  { emoji: '🎁', label: 'Promos',    desc: '2x1 y % por cantidad',       path: '/promos' },
   { emoji: '👥', label: 'Cajeros',   desc: 'Empleados de caja',          path: '/cajeros' },
 ];
 
