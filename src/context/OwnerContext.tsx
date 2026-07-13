@@ -8,6 +8,9 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef, ReactNode } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from './AuthContext';
+import {
+  guardarCredencialOffline, verificarCredencialOffline, hayCredencialOffline, CLAVE_PIN_DUENO,
+} from '../lib/authOffline';
 
 const LOCK_MS = 5 * 60 * 1000; // 5 minutos de inactividad
 
@@ -37,10 +40,13 @@ export const OwnerProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       setLoading(true);
       try {
         // RPC: los miembros ya no leen el hash directamente (hardening del PIN).
-        const { data } = await supabase.rpc('tiene_pin', { p: { comercio_id: comercio.id } });
+        const { data, error } = await supabase.rpc('tiene_pin', { p: { comercio_id: comercio.id } });
+        if (error) throw error;
         setHasPin(data === true);
       } catch {
-        setHasPin(false);
+        // Sin conexión: si hay un PIN cacheado vigente, el comercio TIENE pin
+        // (evita que offline la UI ofrezca "crear PIN" sobre uno existente).
+        setHasPin(await hayCredencialOffline(CLAVE_PIN_DUENO));
       }
       setUnlocked(false);
       setLoading(false);
@@ -77,12 +83,21 @@ export const OwnerProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       if (error) { console.error('[owner] setPin:', error.message); return false; }
       setHasPin(true);
       setUnlocked(true); // al crear el PIN, queda en modo dueño
+      guardarCredencialOffline(CLAVE_PIN_DUENO, pin); // habilitar fallback offline
       return true;
     } catch (e) {
       console.error('[owner] setPin error:', e);
       return false;
     }
   }, [comercio]);
+
+  // Sin conexión: verificar contra la cache local (PBKDF2, vence a las 72 h
+  // del último desbloqueo online). Ver lib/authOffline.ts.
+  const unlockOffline = useCallback(async (pin: string) => {
+    const { ok } = await verificarCredencialOffline(CLAVE_PIN_DUENO, pin);
+    if (ok) setUnlocked(true);
+    return ok;
+  }, []);
 
   const tryUnlock = useCallback(async (pin: string) => {
     if (!comercio) return false;
@@ -92,14 +107,22 @@ export const OwnerProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       const { data, error } = await supabase.rpc('verificar_pin', {
         p: { comercio_id: comercio.id, pin },
       });
-      if (error) { console.error('[owner] tryUnlock:', error.message); return false; }
-      if (data === true) { setUnlocked(true); return true; }
-      return false;
+      if (error) {
+        // Error de red/RPC (no un PIN incorrecto) → intentar fallback offline.
+        console.error('[owner] tryUnlock:', error.message);
+        return unlockOffline(pin);
+      }
+      if (data === true) {
+        setUnlocked(true);
+        guardarCredencialOffline(CLAVE_PIN_DUENO, pin); // renovar cache offline
+        return true;
+      }
+      return false; // PIN incorrecto online: NO probar la cache
     } catch (e) {
       console.error('[owner] tryUnlock error:', e);
-      return false;
+      return unlockOffline(pin);
     }
-  }, [comercio]);
+  }, [comercio, unlockOffline]);
 
   return (
     <Ctx.Provider value={{ hasPin, isUnlocked, loading, setPin, tryUnlock, lock, keepAlive }}>

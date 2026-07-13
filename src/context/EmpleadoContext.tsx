@@ -7,6 +7,7 @@ import React, { createContext, useContext, useState, useEffect, ReactNode, useCa
 import { supabase } from '../lib/supabase';
 import { useAuth } from './AuthContext';
 import { openDB, getLocalSetting, setLocalSetting } from '../lib/outbox';
+import { guardarCredencialOffline, verificarCredencialOffline, clavePorLegajo } from '../lib/authOffline';
 
 export interface EmpleadoVenta { id: string; legajo: string; nombre: string; activo?: boolean; }
 export interface CajeroActivo { id: string; legajo: string; nombre: string; admin?: boolean; desde?: number; }
@@ -66,22 +67,35 @@ export const EmpleadoProvider: React.FC<{ children: ReactNode }> = ({ children }
     openDB().then(() => setLocalSetting(KEY, c ? JSON.stringify(c) : '')).catch(() => {});
   };
 
+  // Sin conexión: verificar contra la cache local (PBKDF2, 72 h desde el
+  // último login online de ESE legajo). Ver lib/authOffline.ts.
+  const iniciarTurnoOffline = useCallback(async (legajo: string, pass: string): Promise<string | null> => {
+    const { ok, extra } = await verificarCredencialOffline(clavePorLegajo(legajo), pass);
+    const e = extra as { id?: string; legajo?: string; nombre?: string } | undefined;
+    if (!ok || !e?.id) return 'Sin conexión y sin login reciente de este legajo';
+    const c: CajeroActivo = { id: e.id, legajo: e.legajo!, nombre: e.nombre!, desde: Date.now() };
+    setCajero(c); persistir(c);
+    return null;
+  }, []);
+
   const iniciarTurno = useCallback(async (legajo: string, pass: string): Promise<string | null> => {
     if (!comercio) return 'Sin comercio';
     try {
       const { data, error } = await supabase.rpc('verificar_empleado_venta', {
         p: { comercio_id: comercio.id, legajo: legajo.trim(), pass },
       });
-      if (error) return 'No se pudo validar (¿sin conexión?)';
+      if (error) return iniciarTurnoOffline(legajo, pass); // error de red, no de credenciales
       const r = data as { ok?: boolean; id?: string; legajo?: string; nombre?: string };
       if (!r?.ok) return 'Legajo o contraseña incorrectos';
       const c: CajeroActivo = { id: r.id!, legajo: r.legajo!, nombre: r.nombre!, desde: Date.now() };
       setCajero(c); persistir(c);
+      // Renovar el fallback offline de este legajo (72 h).
+      guardarCredencialOffline(clavePorLegajo(legajo), pass, { id: r.id, legajo: r.legajo, nombre: r.nombre });
       return null;
     } catch {
-      return 'No se pudo validar (¿sin conexión?)';
+      return iniciarTurnoOffline(legajo, pass);
     }
-  }, [comercio]);
+  }, [comercio, iniciarTurnoOffline]);
 
   const entrarComoAdmin = useCallback((nombre = 'Administrador') => {
     const c: CajeroActivo = { id: 'admin', legajo: '—', nombre, admin: true, desde: Date.now() };
