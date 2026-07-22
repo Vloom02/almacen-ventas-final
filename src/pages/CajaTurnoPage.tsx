@@ -44,7 +44,7 @@ const CajaTurnoPage: React.FC = () => {
   const enCaja = (apertura?.monto ?? 0) + ingresos - egresos; // sin contar ventas
 
   const insertar = async (t: 'apertura' | 'ingreso' | 'egreso', m: number, mot: string) => {
-    if (!comercio) return;
+    if (!comercio || busy) return; // anti doble-tap: un solo movimiento por vez
     setBusy(true);
     const { error } = await supabase.from('ventas_caja_mov').insert({
       comercio_id: comercio.id, sucursal_id: sucursalActiva?.id ?? null,
