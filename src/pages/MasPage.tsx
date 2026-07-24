@@ -9,6 +9,8 @@ import { IonContent } from '@ionic/react';
 import { useHistory } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useEmpleado } from '../context/EmpleadoContext';
+import { useOwner, OPCIONES_LOCK } from '../context/OwnerContext';
+import { useConfirm } from '../lib/useConfirm';
 
 interface Tile { emoji: string; label: string; desc: string; path: string; }
 
@@ -26,6 +28,8 @@ const MasPage: React.FC = () => {
   const history = useHistory();
   const { comercio, logout } = useAuth();
   const { cajero, cerrarTurno } = useEmpleado();
+  const { hasPin, lockMin, setLockMin } = useOwner();
+  const confirmar = useConfirm();
 
   // Es "dueño" si no hay sistema de cajeros activo, o si entró como admin (PIN).
   const esDueno = !cajero || cajero.admin === true;
@@ -51,13 +55,27 @@ const MasPage: React.FC = () => {
               ))}
             </div>
 
+            {hasPin && (
+              <div style={{ marginTop: 16, padding: '12px 14px', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border)', background: 'var(--surface)', display: 'flex', alignItems: 'center', gap: 10 }}>
+                <span style={{ fontSize: 20 }}>🔒</span>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 14, fontWeight: 600 }}>Bloquear PIN tras</div>
+                  <div style={{ fontSize: 12, color: 'var(--text-2)' }}>Inactividad antes de volver a pedir el PIN</div>
+                </div>
+                <select value={lockMin} onChange={e => setLockMin(Number(e.target.value))}
+                  style={{ padding: '8px 10px', borderRadius: 'var(--radius)', border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)', fontSize: 14, fontFamily: 'inherit', cursor: 'pointer' }}>
+                  {OPCIONES_LOCK.map(m => <option key={m} value={m}>{m} min</option>)}
+                </select>
+              </div>
+            )}
+
             {cajero?.admin && (
-              <button type="button" onClick={() => { if (window.confirm('¿Cerrar turno de administrador?')) cerrarTurno(); }}
+              <button type="button" onClick={async () => { if (await confirmar('¿Cerrar turno de administrador?', { okText: 'Cerrar turno' })) cerrarTurno(); }}
                 style={{ width: '100%', marginTop: 14, padding: 13, borderRadius: 'var(--radius)', border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text-2)', fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
                 Cerrar turno (administrador)
               </button>
             )}
-            <button type="button" onClick={() => { if (window.confirm('¿Cerrar sesión del comercio?')) logout(); }}
+            <button type="button" onClick={async () => { if (await confirmar('¿Cerrar sesión del comercio?', { peligro: true, okText: 'Cerrar sesión' })) logout(); }}
               style={{ width: '100%', marginTop: 10, padding: 13, borderRadius: 'var(--radius)', border: '1px solid var(--border)', background: 'none', color: 'var(--color-danger)', fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
               Cerrar sesión
             </button>

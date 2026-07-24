@@ -9,12 +9,14 @@ import { uuid } from '../lib/ventas-engine';
 import { useAuth } from '../context/AuthContext';
 import { formatMoney } from '../context/VentasContext';
 import { Card, Badge, EmptyState, Skeleton } from '../components/ui';
+import { useConfirm } from '../lib/useConfirm';
 import { BookOpenIcon, CheckIcon, MagnifyingGlass } from '../components/ui/icons';
 
 interface DeudaRow { id: string; cliente: string; monto: number; pagada: boolean; fecha: string; }
 
 const DeudasPage: React.FC = () => {
   const { comercio, miembro } = useAuth();
+  const confirmar = useConfirm();
   const [deudas, setDeudas] = useState<DeudaRow[]>([]);
   const [pagos, setPagos] = useState<Record<string, number>>({}); // deuda_id → abonado
   const [loading, setLoading] = useState(true);
@@ -88,8 +90,8 @@ const DeudasPage: React.FC = () => {
     if (monto > 0) registrarPago(d, monto);
   };
 
-  const saldar = (d: DeudaRow) => {
-    if (!window.confirm(`¿Saldar la deuda de "${d.cliente}" (${formatMoney(saldoDe(d))})?`)) return;
+  const saldar = async (d: DeudaRow) => {
+    if (!(await confirmar(`¿Saldar la deuda de "${d.cliente}" (${formatMoney(saldoDe(d))})?`, { okText: 'Saldar' }))) return;
     registrarPago(d, saldoDe(d));
   };
 

@@ -12,12 +12,22 @@ import {
   guardarCredencialOffline, verificarCredencialOffline, hayCredencialOffline, CLAVE_PIN_DUENO,
 } from '../lib/authOffline';
 
-const LOCK_MS = 5 * 60 * 1000; // 5 minutos de inactividad
+// Minutos de inactividad antes de re-bloquear el modo dueño. Configurable por
+// el dueño (preferencia local del dispositivo); antes era fijo en 5 min y el
+// dueño terminaba tipeando el PIN decenas de veces por día.
+const LOCK_KEY = 'ventas:pin-lock-min';
+export const OPCIONES_LOCK = [5, 15, 30, 60];
+const leerLockMin = (): number => {
+  const v = parseInt(localStorage.getItem(LOCK_KEY) ?? '5', 10);
+  return OPCIONES_LOCK.includes(v) ? v : 5;
+};
 
 interface OwnerCtx {
   hasPin: boolean;        // ya hay un PIN configurado en este comercio
   isUnlocked: boolean;    // modo dueño activo ahora
   loading: boolean;
+  lockMin: number;        // minutos de auto-bloqueo por inactividad
+  setLockMin: (m: number) => void;
   setPin:    (pin: string) => Promise<boolean>;   // crear/cambiar PIN (debe estar desbloqueado o ser primera vez)
   tryUnlock: (pin: string) => Promise<boolean>;   // verificar PIN e ingresar a modo dueño
   lock:      () => void;                           // salir de modo dueño
@@ -31,7 +41,13 @@ export const OwnerProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   const [hasPin, setHasPin]       = useState(false);
   const [isUnlocked, setUnlocked] = useState(false);
   const [loading, setLoading]     = useState(true);
+  const [lockMin, setLockMinState] = useState(leerLockMin);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const setLockMin = useCallback((m: number) => {
+    localStorage.setItem(LOCK_KEY, String(m));
+    setLockMinState(m);
+  }, []);
 
   // Cargar si el comercio ya tiene PIN configurado
   useEffect(() => {
@@ -63,8 +79,8 @@ export const OwnerProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   const keepAlive = useCallback(() => {
     if (!isUnlocked) return;
     clearTimer();
-    timerRef.current = setTimeout(() => setUnlocked(false), LOCK_MS);
-  }, [isUnlocked]);
+    timerRef.current = setTimeout(() => setUnlocked(false), lockMin * 60 * 1000);
+  }, [isUnlocked, lockMin]);
 
   // Arrancar timer al desbloquear
   useEffect(() => {
@@ -125,7 +141,7 @@ export const OwnerProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   }, [comercio, unlockOffline]);
 
   return (
-    <Ctx.Provider value={{ hasPin, isUnlocked, loading, setPin, tryUnlock, lock, keepAlive }}>
+    <Ctx.Provider value={{ hasPin, isUnlocked, loading, lockMin, setLockMin, setPin, tryUnlock, lock, keepAlive }}>
       {children}
     </Ctx.Provider>
   );

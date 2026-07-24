@@ -8,6 +8,7 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import { buscarProductosPorNombre } from '../lib/ventas-engine';
 import { Card, Button, EmptyState, Skeleton } from '../components/ui';
+import { useConfirm } from '../lib/useConfirm';
 import { TagIcon, TrashIcon, MagnifyingGlass } from '../components/ui/icons';
 import { Producto } from '../types';
 
@@ -18,6 +19,7 @@ interface PromoRow {
 
 const PromosPage: React.FC = () => {
   const { comercio } = useAuth();
+  const confirmar = useConfirm();
   const [promos, setPromos] = useState<PromoRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState({ show: false, msg: '', color: 'success' as 'success' | 'danger' });
@@ -68,7 +70,7 @@ const PromosPage: React.FC = () => {
   };
 
   const borrar = async (p: PromoRow) => {
-    if (!window.confirm(`¿Quitar la promo de "${p.nombre}"?`)) return;
+    if (!(await confirmar(`¿Quitar la promo de "${p.nombre}"?`, { peligro: true, okText: 'Quitar' }))) return;
     const { error } = await supabase.from('ventas_promos').delete().eq('id', p.id);
     if (error) { toast$('No se pudo borrar', false); return; }
     setPromos(x => x.filter(y => y.id !== p.id));

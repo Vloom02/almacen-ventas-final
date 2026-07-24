@@ -20,6 +20,7 @@ import { Capacitor } from '@capacitor/core';
 import { descuentoPromos, Promo } from '../lib/promos';
 import { openDB, getLocalSetting, setLocalSetting } from '../lib/outbox';
 import { supabase } from '../lib/supabase';
+import { useConfirm } from '../lib/useConfirm';
 
 const payOptions = [
   { key: 'efectivo',     label: '💵 Efectivo' },
@@ -35,6 +36,7 @@ const VentaPage: React.FC = () => {
   const { escala, setEscala } = useFontScale();
   const { cajero, cerrarTurno } = useEmpleado();
   const { isUnlocked, lock } = useOwner();
+  const confirmar = useConfirm();
 
   const [scan, setScan]           = useState('');
   const [query, setQuery]         = useState('');
@@ -175,7 +177,7 @@ const VentaPage: React.FC = () => {
             )}
             {cajero && (
               <button type="button"
-                onClick={() => { if (window.confirm(`¿Cerrar el turno de ${cajero.nombre}?`)) cerrarTurno(); }}
+                onClick={async () => { if (await confirmar(`¿Cerrar el turno de ${cajero.nombre}?`, { okText: 'Cerrar turno' })) cerrarTurno(); }}
                 className="pressable"
                 style={{ marginTop: 6, display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 10px', borderRadius: 'var(--radius-full)', border: '1px solid var(--color-primary-border)', background: 'var(--color-primary-bg)', color: 'var(--color-primary-dark)', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
                 👤 {cajero.nombre} · salir
@@ -385,7 +387,9 @@ const VentaPage: React.FC = () => {
         </IonContent>
       </IonModal>
 
-      <IonToast isOpen={toast.show} onDidDismiss={() => setToast(t => ({ ...t, show: false }))} message={toast.msg} duration={2500} position="top" color={toast.color} />
+      {/* Éxito: toast corto (el cajero agrega ítems rápido, no debe interrumpir);
+          error: más largo para que se lea. */}
+      <IonToast isOpen={toast.show} onDidDismiss={() => setToast(t => ({ ...t, show: false }))} message={toast.msg} duration={toast.color === 'danger' ? 2800 : 1100} position="top" color={toast.color} />
     </IonContent>
   );
 };

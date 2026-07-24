@@ -9,6 +9,7 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import { useEmpleado } from '../context/EmpleadoContext';
 import { formatMoney } from '../context/VentasContext';
+import { useConfirm } from '../lib/useConfirm';
 import { Card, Button, Skeleton } from '../components/ui';
 
 interface VentaRow { total: number; metodo_pago: string; fiado: boolean; }
@@ -21,6 +22,7 @@ const CajeroCierrePage: React.FC = () => {
   const history = useHistory();
   const { comercio, sucursalActiva } = useAuth();
   const { cajero, cerrarTurno } = useEmpleado();
+  const confirmar = useConfirm();
 
   const desde = useMemo(() => {
     const d = cajero?.desde ? new Date(cajero.desde) : new Date();
@@ -71,7 +73,7 @@ const CajeroCierrePage: React.FC = () => {
 
   const cerrar = async () => {
     if (!comercio || !cajero) return;
-    if (!window.confirm('¿Cerrar la caja y salir del turno?')) return;
+    if (!(await confirmar('¿Cerrar la caja y salir del turno?', { okText: 'Cerrar caja' }))) return;
     setCerrando(true);
     try {
       await supabase.from('ventas_cierres').insert({

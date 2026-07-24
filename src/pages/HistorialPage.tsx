@@ -8,6 +8,7 @@ import { openDB, enqueueOutbox } from '../lib/outbox';
 import { ventasACSV, guardarCSV } from '../lib/exportar';
 import { useAuth } from '../context/AuthContext';
 import { formatMoney } from '../context/VentasContext';
+import { useConfirm } from '../lib/useConfirm';
 import { Card, Badge, EmptyState, Skeleton, Button } from '../components/ui';
 import { ClipboardIcon, FunnelIcon, DocumentIcon } from '../components/ui/icons';
 import { HistoryFilters } from '../types';
@@ -16,6 +17,7 @@ interface VentaRow { id: string; total: number; descuento: number; metodo_pago: 
 
 const SaleCard: React.FC<{ venta: VentaRow; onChanged: () => void }> = ({ venta, onChanged }) => {
   const { comercio, miembro } = useAuth();
+  const confirmar = useConfirm();
   const [open, setOpen] = useState(false);
   const [anulando, setAnulando] = useState(false);
   const [anuladaLocal, setAnuladaLocal] = useState(false); // optimista (offline)
@@ -27,7 +29,7 @@ const SaleCard: React.FC<{ venta: VentaRow; onChanged: () => void }> = ({ venta,
   // outbox (el RPC es idempotente por venta_id → reintentar es seguro).
   const anular = async () => {
     if (!comercio || anulada) return;
-    if (!window.confirm('¿Anular esta venta y devolver el stock a los lotes? No se puede deshacer.')) return;
+    if (!(await confirmar('¿Anular esta venta y devolver el stock a los lotes? No se puede deshacer.', { peligro: true, okText: 'Anular' }))) return;
     setAnulando(true);
     const payload = { ventaId: venta.id, comercioId: comercio.id, usuario: miembro?.nombre ?? null };
     if (navigator.onLine) {
