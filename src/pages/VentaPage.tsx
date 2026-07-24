@@ -258,7 +258,7 @@ const VentaPage: React.FC = () => {
 
         {/* Scanner: lector físico / tipeo + botón de cámara */}
         <Card variant="bordered" style={{ padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
-          <span style={{ width: 9, height: 9, borderRadius: '50%', background: 'var(--color-primary)', flexShrink: 0, animation: 'pulse 2s infinite' }} />
+          <span style={{ width: 9, height: 9, borderRadius: '50%', background: 'var(--color-primary)', flexShrink: 0 }} />
           <input ref={scanRef} value={scan} onChange={e => setScan(e.target.value)}
             onKeyDown={e => { if (e.key === 'Enter' && scan.trim()) handleScan(scan.trim()); }}
             placeholder="Escaneá un producto..." autoComplete="off" spellCheck={false}

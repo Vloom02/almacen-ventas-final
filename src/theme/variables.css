@@ -1,5 +1,5 @@
-/* ── Fonts: Space Grotesk (legible con carácter) + JetBrains Mono (números) ──── */
-@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700;800&display=swap');
+/* Fonts: Space Grotesk + JetBrains Mono, self-hosted vía @fontsource-variable
+   (importadas en App.tsx). Antes venían de Google Fonts, que fallaba offline. */
 
 /* ═══════════════════════════════════════════════════════════════════════════
    TEMA: Terminal retro-futurista · fósforo ÁMBAR sobre negro

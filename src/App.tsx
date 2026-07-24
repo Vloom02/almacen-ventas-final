@@ -36,6 +36,9 @@ import '@ionic/react/css/typography.css';
 import '@ionic/react/css/padding.css';
 import '@ionic/react/css/flex-utils.css';
 import '@ionic/react/css/display.css';
+// Fuentes self-hosted (offline-first, sin round-trip a Google Fonts al arrancar).
+import '@fontsource-variable/space-grotesk';
+import '@fontsource-variable/jetbrains-mono';
 import './theme/variables.css';
 
 setupIonicReact();
