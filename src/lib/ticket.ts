@@ -25,6 +25,8 @@ export interface TicketData {
   metodoPago: string;
   cliente?: string;
   fiado?: boolean;
+  cajero?: string;
+  legajo?: string;
 }
 
 function centrar(s: string): string {
@@ -49,6 +51,7 @@ export function armarTicket(d: TicketData, fmt: (n: number) => string): string {
   const fecha = `${String(f.getDate()).padStart(2, '0')}/${String(f.getMonth() + 1).padStart(2, '0')}/${f.getFullYear()} ${String(f.getHours()).padStart(2, '0')}:${String(f.getMinutes()).padStart(2, '0')}`;
   out.push(centrar(fecha));
   out.push(centrar('Ticket #' + d.folio));
+  if (d.cajero) out.push(centrar('Cajero: ' + d.cajero + (d.legajo && d.legajo !== '—' ? ` (#${d.legajo})` : '')));
   out.push(sep);
 
   for (const it of d.items) {

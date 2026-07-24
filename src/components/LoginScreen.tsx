@@ -14,21 +14,24 @@ const LoginScreen: React.FC = () => {
   const [password, setPass]   = useState('');
   const [nombre, setNombre]   = useState('');
   const [comercio, setComercio] = useState('');
+  const [codigoInv, setCodigoInv] = useState(''); // código de invitación (empleado)
   const [error, setError]     = useState('');
   const [loading, setLoading] = useState(false);
+
+  const conCodigo = codigoInv.trim().length > 0;
 
   const handleSubmit = async () => {
     setError(''); setLoading(true);
     const err = mode === 'login'
       ? await login(email.trim(), password)
-      : await register(email.trim(), password, nombre.trim(), comercio.trim());
+      : await register(email.trim(), password, nombre.trim(), comercio.trim(), codigoInv.trim() || undefined);
     setLoading(false);
     if (err) setError(err);
   };
 
   const valid = mode === 'login'
     ? email.includes('@') && password.length >= 6
-    : email.includes('@') && password.length >= 6 && nombre.trim() && comercio.trim();
+    : email.includes('@') && password.length >= 6 && nombre.trim() && (conCodigo || comercio.trim());
 
   return (
     <IonContent style={{ '--background': 'var(--bg)' } as React.CSSProperties}>
@@ -45,7 +48,15 @@ const LoginScreen: React.FC = () => {
           {mode === 'register' && (
             <>
               <Input label="Tu nombre" value={nombre} onChange={setNombre} placeholder="Juan Pérez" />
-              <Input label="Nombre del comercio" value={comercio} onChange={setComercio} placeholder="Almacén Don Juan" />
+              {!conCodigo && (
+                <Input label="Nombre del comercio" value={comercio} onChange={setComercio} placeholder="Almacén Don Juan" />
+              )}
+              <Input label="Código de invitación (opcional)" value={codigoInv} onChange={v => setCodigoInv(v.toUpperCase())} placeholder="EJ: AB23CD45" />
+              {conCodigo && (
+                <p style={{ fontSize: 12, color: 'var(--text-2)', margin: '-4px 0 12px', lineHeight: 1.5 }}>
+                  Te vas a unir como empleado al comercio del dueño que te invitó.
+                </p>
+              )}
             </>
           )}
           <Input label="Email" value={email} onChange={setEmail} type="email" placeholder="tu@email.com" inputMode="email" />

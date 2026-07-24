@@ -23,8 +23,15 @@ export const SUPABASE_ENABLED = !!(SUPABASE_URL && SUPABASE_ANON);
 // ─── Auth (compartida con Stockly) ────────────────────────────────────────────
 export const signIn  = (email: string, password: string) =>
   supabase.auth.signInWithPassword({ email, password });
-export const signUp  = (email: string, password: string, nombre: string, nombreComercio: string) =>
-  supabase.auth.signUp({ email, password, options: { data: { nombre, nombre_comercio: nombreComercio } } });
+export const signUp  = (email: string, password: string, nombre: string, nombreComercio: string, codigoInvitacion?: string) =>
+  supabase.auth.signUp({
+    email, password,
+    options: {
+      data: codigoInvitacion
+        ? { nombre, codigo_invitacion: codigoInvitacion } // empleado: se une al comercio del código
+        : { nombre, nombre_comercio: nombreComercio },    // dueño: crea su comercio
+    },
+  });
 export const signOut = () => supabase.auth.signOut();
 export const getSession = () => supabase.auth.getSession();
 

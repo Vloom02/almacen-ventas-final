@@ -8,9 +8,11 @@ import { VentasProvider } from './context/VentasContext';
 import { ThemeProvider } from './context/ThemeContext';
 import { FontScaleProvider } from './context/FontScaleContext';
 import { OwnerProvider } from './context/OwnerContext';
+import { EmpleadoProvider, useEmpleado } from './context/EmpleadoContext';
 import OwnerGuard from './components/OwnerGuard';
 import LoginScreen from './components/LoginScreen';
 import OnboardingVentas from './components/OnboardingVentas';
+import CajeroGate from './components/CajeroGate';
 import VentaPage from './pages/VentaPage'; // eager: es la pantalla de inicio
 // Páginas secundarias: lazy → bundle inicial más liviano / arranque más rápido
 const DashboardPage = lazy(() => import('./pages/DashboardPage'));
@@ -18,8 +20,14 @@ const StockPage     = lazy(() => import('./pages/StockPage'));
 const CierrePage    = lazy(() => import('./pages/CierrePage'));
 const HistorialPage = lazy(() => import('./pages/HistorialPage'));
 const DeudasPage    = lazy(() => import('./pages/DeudasPage'));
+const CajerosPage   = lazy(() => import('./pages/CajerosPage'));
+const MasPage       = lazy(() => import('./pages/MasPage'));
+const CajeroCierrePage = lazy(() => import('./pages/CajeroCierrePage'));
+const CajaTurnoPage = lazy(() => import('./pages/CajaTurnoPage'));
+const EstadisticasPage = lazy(() => import('./pages/EstadisticasPage'));
+const PromosPage    = lazy(() => import('./pages/PromosPage'));
 
-import { ShoppingCartIcon, ChartBarIcon, CubeIcon, ClipboardIcon, BookOpenIcon, BanknotesIcon } from './components/ui/icons';
+import { ShoppingCartIcon, CubeIcon } from './components/ui/icons';
 
 import '@ionic/react/css/core.css';
 import '@ionic/react/css/normalize.css';
@@ -28,6 +36,9 @@ import '@ionic/react/css/typography.css';
 import '@ionic/react/css/padding.css';
 import '@ionic/react/css/flex-utils.css';
 import '@ionic/react/css/display.css';
+// Fuentes self-hosted (offline-first, sin round-trip a Google Fonts al arrancar).
+import '@fontsource-variable/space-grotesk';
+import '@fontsource-variable/jetbrains-mono';
 import './theme/variables.css';
 
 setupIonicReact();
@@ -44,6 +55,14 @@ const TabIcon: React.FC<{ Icon: React.FC<{size?:number;color?:string}>; active?:
   <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Icon size={22} /></span>
 );
 
+// Ícono "Más" (grilla 2x2)
+const EllipsisIcon: React.FC<{ size?: number; color?: string }> = ({ size = 22, color = 'currentColor' }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+    <rect x="3" y="3" width="7" height="7" rx="1.5" /><rect x="14" y="3" width="7" height="7" rx="1.5" />
+    <rect x="3" y="14" width="7" height="7" rx="1.5" /><rect x="14" y="14" width="7" height="7" rx="1.5" />
+  </svg>
+);
+
 const Tabs: React.FC = () => (
   <IonTabs>
     <IonRouterOutlet>
@@ -53,33 +72,28 @@ const Tabs: React.FC = () => (
       <Route path="/caja"       exact render={() => <Suspense fallback={<PageLoader />}><OwnerGuard titulo="Cierre de caja"><CierrePage /></OwnerGuard></Suspense>} />
       <Route path="/historial"  exact render={() => <Suspense fallback={<PageLoader />}><OwnerGuard titulo="Historial"><HistorialPage /></OwnerGuard></Suspense>} />
       <Route path="/deudas"     exact render={() => <Suspense fallback={<PageLoader />}><OwnerGuard titulo="Deudas"><DeudasPage /></OwnerGuard></Suspense>} />
+      <Route path="/cajeros"    exact render={() => <Suspense fallback={<PageLoader />}><OwnerGuard titulo="Cajeros"><CajerosPage /></OwnerGuard></Suspense>} />
+      <Route path="/estadisticas" exact render={() => <Suspense fallback={<PageLoader />}><OwnerGuard titulo="Estadísticas"><EstadisticasPage /></OwnerGuard></Suspense>} />
+      <Route path="/promos"     exact render={() => <Suspense fallback={<PageLoader />}><OwnerGuard titulo="Promos"><PromosPage /></OwnerGuard></Suspense>} />
+      <Route path="/mas"        exact render={() => <Suspense fallback={<PageLoader />}><MasPage /></Suspense>} />
+      <Route path="/cerrar-caja" exact render={() => <Suspense fallback={<PageLoader />}><CajeroCierrePage /></Suspense>} />
+      <Route path="/caja-turno"  exact render={() => <Suspense fallback={<PageLoader />}><CajaTurnoPage /></Suspense>} />
       <Route path="/" exact><Redirect to="/venta" /></Route>
     </IonRouterOutlet>
 
+    {/* Barra despejada: lo de todos los días (Venta, Stock) + hub "Más" con lo del dueño */}
     <IonTabBar slot="bottom" style={{ background: 'var(--surface)', borderTop: '1px solid var(--border)' }}>
       <IonTabButton tab="venta" href="/venta">
         <TabIcon Icon={ShoppingCartIcon} />
-        <IonLabel style={{ fontSize: 10 }}>Venta</IonLabel>
-      </IonTabButton>
-      <IonTabButton tab="dashboard" href="/dashboard">
-        <TabIcon Icon={ChartBarIcon} />
-        <IonLabel style={{ fontSize: 10 }}>Dashboard</IonLabel>
+        <IonLabel style={{ fontSize: 11 }}>Venta</IonLabel>
       </IonTabButton>
       <IonTabButton tab="stock" href="/stock">
         <TabIcon Icon={CubeIcon} />
-        <IonLabel style={{ fontSize: 10 }}>Stock</IonLabel>
+        <IonLabel style={{ fontSize: 11 }}>Stock</IonLabel>
       </IonTabButton>
-      <IonTabButton tab="caja" href="/caja">
-        <TabIcon Icon={BanknotesIcon} />
-        <IonLabel style={{ fontSize: 10 }}>Caja</IonLabel>
-      </IonTabButton>
-      <IonTabButton tab="historial" href="/historial">
-        <TabIcon Icon={ClipboardIcon} />
-        <IonLabel style={{ fontSize: 10 }}>Historial</IonLabel>
-      </IonTabButton>
-      <IonTabButton tab="deudas" href="/deudas">
-        <TabIcon Icon={BookOpenIcon} />
-        <IonLabel style={{ fontSize: 10 }}>Deudas</IonLabel>
+      <IonTabButton tab="mas" href="/mas">
+        <TabIcon Icon={EllipsisIcon} />
+        <IonLabel style={{ fontSize: 11 }}>Más</IonLabel>
       </IonTabButton>
     </IonTabBar>
   </IonTabs>
@@ -114,12 +128,39 @@ const Gate: React.FC = () => {
   return (
     <VentasProvider>
       <OwnerProvider>
-        <IonReactRouter>
-          <Tabs />
-        </IonReactRouter>
-        <OnboardingVentas />
+        <EmpleadoProvider>
+          <AppConCajero />
+        </EmpleadoProvider>
       </OwnerProvider>
     </VentasProvider>
+  );
+};
+
+// Si el comercio tiene cajeros definidos, exige iniciar turno antes de usar la app.
+const AppConCajero: React.FC = () => {
+  const { cajero, hayEmpleados, cargando } = useEmpleado();
+
+  if (cargando) {
+    return (
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg)' }}>
+        <div style={{ width: 32, height: 32, border: '3px solid var(--border)', borderTopColor: 'var(--color-primary)', borderRadius: '50%', animation: 'spin .7s linear infinite' }} />
+      </div>
+    );
+  }
+
+  // Sin internet no se puede validar el legajo: NO bloqueamos (evita dejar al
+  // cajero trabado si cerró turno offline). Cuando vuelve la red, el gate exige.
+  if (hayEmpleados && !cajero && navigator.onLine) {
+    return <IonReactRouter><CajeroGate /></IonReactRouter>;
+  }
+
+  return (
+    <>
+      <IonReactRouter>
+        <Tabs />
+      </IonReactRouter>
+      <OnboardingVentas />
+    </>
   );
 };
 

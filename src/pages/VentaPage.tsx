@@ -2,11 +2,12 @@
 // Pantalla de venta. Escanea / busca → carrito → confirma (FEFO + offline).
 // ═══════════════════════════════════════════════════════════════════════════
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { IonContent, IonModal, IonToast } from '@ionic/react';
+import { IonContent, IonModal, IonToast, useIonAlert } from '@ionic/react';
 import { useVentas, formatMoney } from '../context/VentasContext';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { useFontScale, ESCALA_MIN, ESCALA_MAX } from '../context/FontScaleContext';
+import { useEmpleado } from '../context/EmpleadoContext';
 import { useOwner } from '../context/OwnerContext';
 import { Button, Card, SyncBanner, EmptyState } from '../components/ui';
 import {
@@ -14,8 +15,13 @@ import {
   TrashIcon, CheckIcon, SunIcon, MoonIcon, LockClosedIcon,
 } from '../components/ui/icons';
 import { Producto } from '../types';
+import ScannerModal from '../components/ScannerModal';
 import { armarTicket } from '../lib/ticket';
 import { Capacitor } from '@capacitor/core';
+import { descuentoPromos, Promo } from '../lib/promos';
+import { openDB, getLocalSetting, setLocalSetting } from '../lib/outbox';
+import { supabase } from '../lib/supabase';
+import { useConfirm } from '../lib/useConfirm';
 
 const payOptions = [
   { key: 'efectivo',     label: '💵 Efectivo' },
@@ -25,11 +31,24 @@ const payOptions = [
 ];
 
 const VentaPage: React.FC = () => {
-  const { state, escanear, buscarPorNombre, agregarProducto, setQty, quitar, vaciar, confirmarVenta } = useVentas();
+  const { state, escanear, buscarPorNombre, agregarProducto, agregarMontoLibre, setQty, quitar, vaciar, confirmarVenta } = useVentas();
   const { sucursalActiva, sucursales, setSucursalActiva, comercio } = useAuth();
   const { isDark, toggleDark } = useTheme();
   const { escala, setEscala } = useFontScale();
+  const { cajero, cerrarTurno } = useEmpleado();
   const { isUnlocked, lock } = useOwner();
+  const confirmar = useConfirm();
+  const [presentAlert] = useIonAlert();
+
+  const pedirMontoLibre = () => presentAlert({
+    header: 'Venta rápida',
+    message: 'Cobrar un monto sin producto del catálogo (no descuenta stock).',
+    inputs: [{ name: 'monto', type: 'number', placeholder: 'Monto $', min: 1 }],
+    buttons: [
+      { text: 'Cancelar', role: 'cancel' },
+      { text: 'Agregar', handler: (d) => { const m = parseFloat(d.monto); if (m > 0) { const r = agregarMontoLibre(m); toast$(r.msg, r.ok); } } },
+    ],
+  });
 
   const [scan, setScan]           = useState('');
   const [query, setQuery]         = useState('');
@@ -38,13 +57,68 @@ const VentaPage: React.FC = () => {
   const [metodoPago, setMetodo]   = useState('efectivo');
   const [cliente, setCliente]     = useState('');
   const [descuento, setDescuento] = useState('');
+  const [recibido, setRecibido]   = useState(''); // efectivo recibido → vuelto
   const [fiado, setFiado]         = useState(false);
   const [processing, setProc]     = useState(false);
   const [ticket, setTicket]       = useState<string | null>(null);
+  const [showScanner, setShowScanner] = useState(false);
   const [toast, setToast]         = useState({ show: false, msg: '', color: 'success' });
   const scanRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => { setTimeout(() => scanRef.current?.focus(), 200); }, []);
+
+  // Favoritos: productos más vendidos (30 días), para tocar sin buscar. Se
+  // cachea local para que anden offline. Se muestran solo con el carrito vacío.
+  const [favoritos, setFavoritos] = useState<Producto[]>([]);
+  useEffect(() => {
+    if (!comercio) return;
+    (async () => {
+      try {
+        const desde = new Date(Date.now() - 30 * 86400000).toISOString();
+        const { data: items } = await supabase.from('ventas_items')
+          .select('producto_id, ventas_ventas!inner(fecha, comercio_id)')
+          .eq('ventas_ventas.comercio_id', comercio.id)
+          .gte('ventas_ventas.fecha', desde)
+          .limit(3000);
+        const conteo = new Map<string, number>();
+        for (const it of items ?? []) if (it.producto_id) conteo.set(it.producto_id, (conteo.get(it.producto_id) ?? 0) + 1);
+        const topIds = [...conteo.entries()].sort((a, b) => b[1] - a[1]).slice(0, 8).map(e => e[0]);
+        if (topIds.length === 0) { setFavoritos([]); return; }
+        const { data: prods } = await supabase.from('productos').select('*').in('id', topIds).eq('activo', true);
+        // respetar el orden por popularidad
+        const orden = new Map(topIds.map((id, i) => [id, i]));
+        const lista = ((prods ?? []) as Producto[]).sort((a, b) => (orden.get(a.id) ?? 99) - (orden.get(b.id) ?? 99));
+        setFavoritos(lista);
+        openDB().then(() => setLocalSetting('favoritos-cache', JSON.stringify(lista))).catch(() => {});
+      } catch {
+        try { await openDB(); const raw = await getLocalSetting('favoritos-cache'); if (raw) setFavoritos(JSON.parse(raw)); } catch { /* */ }
+      }
+    })();
+  }, [comercio]);
+
+  // Promos activas del comercio (con cache local para vender offline).
+  const [promos, setPromos] = useState<Promo[]>([]);
+  useEffect(() => {
+    if (!comercio) return;
+    (async () => {
+      try {
+        const { data, error } = await supabase.from('ventas_promos')
+          .select('producto_id, tipo, min_cant, pct')
+          .eq('comercio_id', comercio.id).eq('activa', true);
+        if (error) throw error;
+        const ps: Promo[] = (data ?? []).map((r: { producto_id: string; tipo: Promo['tipo']; min_cant: number; pct: number }) =>
+          ({ productoId: r.producto_id, tipo: r.tipo, minCant: r.min_cant, pct: Number(r.pct) }));
+        setPromos(ps);
+        openDB().then(() => setLocalSetting('promos-cache', JSON.stringify(ps))).catch(() => {});
+      } catch {
+        try {
+          await openDB();
+          const raw = await getLocalSetting('promos-cache');
+          if (raw) setPromos(JSON.parse(raw));
+        } catch { /* sin promos offline */ }
+      }
+    })();
+  }, [comercio]);
 
   const toast$ = (msg: string, ok = true) => setToast({ show: true, msg, color: ok ? 'success' : 'danger' });
 
@@ -67,7 +141,9 @@ const VentaPage: React.FC = () => {
   };
 
   const subtotal = state.cart.reduce((s, c) => s + c.precio * c.qty, 0);
-  const desc = Math.min(subtotal, parseFloat(descuento) || 0);
+  const promosCalc = descuentoPromos(state.cart, promos);
+  // El descuento de la venta = promos automáticas + descuento manual, tope subtotal.
+  const desc = Math.min(subtotal, (parseFloat(descuento) || 0) + promosCalc.monto);
   const total = subtotal - desc;
   const totalItems = state.cart.reduce((s, c) => s + c.qty, 0);
 
@@ -84,7 +160,7 @@ const VentaPage: React.FC = () => {
       subtotal, descuento: desc, total, metodoPago, cliente: cliente.trim(), fiado,
     };
     setProc(true);
-    const r = await confirmarVenta({ metodoPago, cliente: cliente.trim(), fiado, descuento: desc });
+    const r = await confirmarVenta({ metodoPago, cliente: cliente.trim(), fiado, descuento: desc, usuario: cajero?.nombre ?? null });
     setProc(false);
     if (r.ok) {
       const txt = armarTicket({
@@ -94,9 +170,10 @@ const VentaPage: React.FC = () => {
         folio: (r.ventaId ?? '').replace(/-/g, '').slice(0, 6).toUpperCase() || '------',
         items: snap.items, subtotal: snap.subtotal, descuento: snap.descuento,
         total: snap.total, metodoPago: snap.metodoPago, cliente: snap.cliente, fiado: snap.fiado,
+        cajero: cajero?.nombre, legajo: cajero?.legajo,
       }, formatMoney);
       setTicket(txt);
-      setConfirm(false); setCliente(''); setDescuento(''); setFiado(false); setMetodo('efectivo');
+      setConfirm(false); setCliente(''); setDescuento(''); setRecibido(''); setFiado(false); setMetodo('efectivo');
       toast$(r.msg, true);
     } else {
       toast$(r.msg, false);
@@ -141,6 +218,14 @@ const VentaPage: React.FC = () => {
             ) : (
               <div style={{ fontSize: 12, color: 'var(--text-2)', marginTop: 2 }}>{sucursalActiva?.nombre}</div>
             )}
+            {cajero && (
+              <button type="button"
+                onClick={async () => { if (await confirmar(`¿Cerrar el turno de ${cajero.nombre}?`, { okText: 'Cerrar turno' })) cerrarTurno(); }}
+                className="pressable"
+                style={{ marginTop: 6, display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 10px', borderRadius: 'var(--radius-full)', border: '1px solid var(--color-primary-border)', background: 'var(--color-primary-bg)', color: 'var(--color-primary-dark)', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
+                👤 {cajero.nombre} · salir
+              </button>
+            )}
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             {totalItems > 0 && (
@@ -171,13 +256,21 @@ const VentaPage: React.FC = () => {
           </div>
         </div>
 
-        {/* Scanner */}
+        {/* Scanner: lector físico / tipeo + botón de cámara */}
         <Card variant="bordered" style={{ padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
-          <span style={{ width: 9, height: 9, borderRadius: '50%', background: 'var(--color-primary)', flexShrink: 0, animation: 'pulse 2s infinite' }} />
+          <span style={{ width: 9, height: 9, borderRadius: '50%', background: 'var(--color-primary)', flexShrink: 0 }} />
           <input ref={scanRef} value={scan} onChange={e => setScan(e.target.value)}
             onKeyDown={e => { if (e.key === 'Enter' && scan.trim()) handleScan(scan.trim()); }}
             placeholder="Escaneá un producto..." autoComplete="off" spellCheck={false}
             style={{ flex: 1, border: 'none', outline: 'none', fontSize: 14, background: 'transparent', fontFamily: 'var(--font-mono)', color: 'var(--text)' }} />
+          <button onClick={() => setShowScanner(true)} aria-label="Escanear con la cámara" className="pressable"
+            style={{ flexShrink: 0, width: 40, height: 36, borderRadius: 'var(--radius)', border: 'none', background: 'var(--color-primary)', color: '#fff', cursor: 'pointer', fontSize: 18, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            📷
+          </button>
+          <button onClick={pedirMontoLibre} aria-label="Venta rápida por monto" className="pressable"
+            style={{ flexShrink: 0, height: 36, padding: '0 10px', borderRadius: 'var(--radius)', border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text)', cursor: 'pointer', fontSize: 13, fontWeight: 600, fontFamily: 'inherit' }}>
+            $ Rápida
+          </button>
         </Card>
 
         {/* Manual search */}
@@ -204,6 +297,22 @@ const VentaPage: React.FC = () => {
             </div>
           )}
         </div>
+
+        {/* Favoritos: acceso rápido a los más vendidos (solo con carrito vacío) */}
+        {state.cart.length === 0 && favoritos.length > 0 && (
+          <div style={{ marginBottom: 12 }}>
+            <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-2)', marginBottom: 8 }}>⭐ Más vendidos</div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 8 }}>
+              {favoritos.map(p => (
+                <button key={p.id} onClick={() => pickProduct(p)} className="pressable"
+                  style={{ padding: '10px 12px', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', background: 'var(--surface)', cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit', display: 'flex', flexDirection: 'column', gap: 3, boxShadow: 'var(--shadow-sm)' }}>
+                  <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.nombre}</span>
+                  <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--color-primary)', fontFamily: 'var(--font-mono)' }}>{formatMoney(p.precio)}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Cart */}
         {state.cart.length === 0 ? (
@@ -272,7 +381,13 @@ const VentaPage: React.FC = () => {
                   <span style={{ fontFamily: 'var(--font-mono)' }}>{formatMoney(c.precio * c.qty)}</span>
                 </div>
               ))}
-              {desc > 0 && <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14, padding: '3px 0', color: 'var(--color-primary-dark)' }}><span>Descuento</span><span style={{ fontFamily: 'var(--font-mono)' }}>-{formatMoney(desc)}</span></div>}
+              {promosCalc.lineas.map(l => (
+                <div key={l.nombre} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, padding: '2px 0', color: 'var(--color-primary-dark)' }}>
+                  <span>🎁 {l.nombre} <span style={{ opacity: 0.7 }}>({l.etiqueta})</span></span>
+                  <span style={{ fontFamily: 'var(--font-mono)' }}>-{formatMoney(l.monto)}</span>
+                </div>
+              ))}
+              {desc > promosCalc.monto && <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14, padding: '3px 0', color: 'var(--color-primary-dark)' }}><span>Descuento manual</span><span style={{ fontFamily: 'var(--font-mono)' }}>-{formatMoney(desc - promosCalc.monto)}</span></div>}
               <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 700, fontSize: 17, paddingTop: 8, marginTop: 6, borderTop: '1px dashed var(--border)' }}>
                 <span>TOTAL</span><span style={{ fontFamily: 'var(--font-mono)' }}>{formatMoney(total)}</span>
               </div>
@@ -299,6 +414,41 @@ const VentaPage: React.FC = () => {
                 </button>
               ))}
             </div>
+
+            {/* Vuelto (solo efectivo, y si no es fiado) */}
+            {metodoPago === 'efectivo' && !fiado && (
+              <div style={{ marginBottom: 12 }}>
+                <label style={{ fontSize: 13, color: 'var(--text-2)', display: 'block', marginBottom: 6 }}>Paga con</label>
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 8 }}>
+                  {[1000, 2000, 5000, 10000].map(v => (
+                    <button key={v} onClick={() => setRecibido(String(v))}
+                      style={{ flex: '1 0 auto', padding: '8px 10px', border: '1.5px solid var(--border)', borderRadius: 'var(--radius)', background: 'var(--surface)', color: 'var(--text)', cursor: 'pointer', fontSize: 13, fontWeight: 600, fontFamily: 'inherit' }}>
+                      {formatMoney(v)}
+                    </button>
+                  ))}
+                  <button onClick={() => setRecibido(String(total))}
+                    style={{ flex: '1 0 auto', padding: '8px 10px', border: '1.5px solid var(--border)', borderRadius: 'var(--radius)', background: 'var(--surface)', color: 'var(--text-2)', cursor: 'pointer', fontSize: 13, fontWeight: 600, fontFamily: 'inherit' }}>
+                    Justo
+                  </button>
+                </div>
+                <input type="number" value={recibido} onChange={e => setRecibido(e.target.value)} placeholder="Monto recibido ($)"
+                  inputMode="numeric"
+                  style={{ width: '100%', padding: 11, fontSize: 15, background: 'var(--surface)', color: 'var(--text)', border: '1.5px solid var(--border)', borderRadius: 'var(--radius)', outline: 'none', textAlign: 'center' }} />
+                {recibido !== '' && (parseFloat(recibido) || 0) >= total && (
+                  <div style={{ marginTop: 8, padding: '10px 14px', borderRadius: 'var(--radius)', background: 'var(--color-primary-bg)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--color-primary-dark)' }}>Vuelto</span>
+                    <span style={{ fontSize: 24, fontWeight: 800, fontFamily: 'var(--font-mono)', color: 'var(--color-primary-dark)' }}>
+                      {formatMoney((parseFloat(recibido) || 0) - total)}
+                    </span>
+                  </div>
+                )}
+                {recibido !== '' && (parseFloat(recibido) || 0) < total && (parseFloat(recibido) || 0) > 0 && (
+                  <div style={{ marginTop: 8, fontSize: 12, color: 'var(--color-danger)', textAlign: 'center' }}>
+                    Falta {formatMoney(total - (parseFloat(recibido) || 0))}
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Fiado */}
             <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', marginBottom: fiadoSinCliente ? 6 : 16 }}>
@@ -339,7 +489,16 @@ const VentaPage: React.FC = () => {
         </IonContent>
       </IonModal>
 
-      <IonToast isOpen={toast.show} onDidDismiss={() => setToast(t => ({ ...t, show: false }))} message={toast.msg} duration={2500} position="top" color={toast.color} />
+      {showScanner && (
+        <ScannerModal
+          onCodigoDetectado={(codigo) => { setShowScanner(false); handleScan(codigo); }}
+          onCancel={() => setShowScanner(false)}
+        />
+      )}
+
+      {/* Éxito: toast corto (el cajero agrega ítems rápido, no debe interrumpir);
+          error: más largo para que se lea. */}
+      <IonToast isOpen={toast.show} onDidDismiss={() => setToast(t => ({ ...t, show: false }))} message={toast.msg} duration={toast.color === 'danger' ? 2800 : 1100} position="top" color={toast.color} />
     </IonContent>
   );
 };

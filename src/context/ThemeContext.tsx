@@ -13,7 +13,9 @@ interface ThemeCtx {
 const Ctx = createContext<ThemeCtx | undefined>(undefined);
 
 function applyDark(dark: boolean) {
-  document.body.classList.toggle('dark', dark);
+  // En documentElement (html), no en body: así las variables del tema oscuro
+  // llegan a los componentes de Ionic (shadow DOM) y el texto no queda ilegible.
+  document.documentElement.classList.toggle('dark', dark);
 }
 
 export const ThemeProvider: React.FC<{ children: ReactNode }> = ({ children }) => {

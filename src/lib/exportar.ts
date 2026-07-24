@@ -9,6 +9,8 @@ export interface VentaExport {
   metodo_pago: string;
   cliente: string;
   fiado?: boolean;
+  usuario?: string;
+  descuento?: number;
 }
 
 const METODOS: Record<string, string> = {
@@ -16,12 +18,15 @@ const METODOS: Record<string, string> = {
 };
 
 function celda(v: string | number): string {
-  const s = String(v ?? '');
+  let s = String(v ?? '');
+  // CSV injection: neutralizar textos que Excel interpretaría como fórmula
+  // (p.ej. cliente "=HYPERLINK(...)"). Solo strings; números intactos.
+  if (typeof v === 'string' && /^[=+\-@\t\r]/.test(s)) s = "'" + s;
   return /[;"\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
 }
 
 export function ventasACSV(ventas: VentaExport[]): string {
-  const header = ['Fecha', 'Hora', 'Total', 'Método', 'Cliente', 'Fiado'];
+  const header = ['Fecha', 'Hora', 'Usuario', 'Cliente', 'Método', 'Descuento', 'Total', 'Fiado'];
   const rows = ventas
     .slice()
     .sort((a, b) => b.fecha.localeCompare(a.fecha))
@@ -30,9 +35,11 @@ export function ventasACSV(ventas: VentaExport[]): string {
       return [
         d.toLocaleDateString('es-AR'),
         d.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' }),
-        v.total,
-        METODOS[v.metodo_pago] ?? v.metodo_pago,
+        v.usuario ?? '',
         v.cliente ?? '',
+        METODOS[v.metodo_pago] ?? v.metodo_pago,
+        v.descuento ?? 0,
+        v.total,
         v.fiado ? 'Sí' : 'No',
       ];
     });

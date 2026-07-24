@@ -1,26 +1,33 @@
 // ═══════════════════════════════════════════════════════════════════════════
 // Modo Dueño protegido por PIN (escenario cuenta compartida).
-// - El PIN se guarda HASHEADO (SHA-256) en ventas_config, nunca en texto plano.
+// - El PIN se hashea SERVER-SIDE en bcrypt (RPC configurar_pin) y se verifica
+//   server-side con lockout de intentos (RPC verificar_pin, migración 4).
 // - Si no hay PIN configurado, el dueño lo crea la primera vez.
 // - Una vez desbloqueado, se re-bloquea solo tras 5 min de inactividad.
 // ═══════════════════════════════════════════════════════════════════════════
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef, ReactNode } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from './AuthContext';
+import {
+  guardarCredencialOffline, verificarCredencialOffline, hayCredencialOffline, CLAVE_PIN_DUENO,
+} from '../lib/authOffline';
 
-const LOCK_MS = 5 * 60 * 1000; // 5 minutos de inactividad
-
-// SHA-256 con la Web Crypto API (disponible en el WebView de Capacitor)
-async function sha256(text: string): Promise<string> {
-  const data = new TextEncoder().encode(text);
-  const buf  = await crypto.subtle.digest('SHA-256', data);
-  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
-}
+// Minutos de inactividad antes de re-bloquear el modo dueño. Configurable por
+// el dueño (preferencia local del dispositivo); antes era fijo en 5 min y el
+// dueño terminaba tipeando el PIN decenas de veces por día.
+const LOCK_KEY = 'ventas:pin-lock-min';
+export const OPCIONES_LOCK = [5, 15, 30, 60];
+const leerLockMin = (): number => {
+  const v = parseInt(localStorage.getItem(LOCK_KEY) ?? '5', 10);
+  return OPCIONES_LOCK.includes(v) ? v : 5;
+};
 
 interface OwnerCtx {
   hasPin: boolean;        // ya hay un PIN configurado en este comercio
   isUnlocked: boolean;    // modo dueño activo ahora
   loading: boolean;
+  lockMin: number;        // minutos de auto-bloqueo por inactividad
+  setLockMin: (m: number) => void;
   setPin:    (pin: string) => Promise<boolean>;   // crear/cambiar PIN (debe estar desbloqueado o ser primera vez)
   tryUnlock: (pin: string) => Promise<boolean>;   // verificar PIN e ingresar a modo dueño
   lock:      () => void;                           // salir de modo dueño
@@ -34,7 +41,13 @@ export const OwnerProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   const [hasPin, setHasPin]       = useState(false);
   const [isUnlocked, setUnlocked] = useState(false);
   const [loading, setLoading]     = useState(true);
+  const [lockMin, setLockMinState] = useState(leerLockMin);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const setLockMin = useCallback((m: number) => {
+    localStorage.setItem(LOCK_KEY, String(m));
+    setLockMinState(m);
+  }, []);
 
   // Cargar si el comercio ya tiene PIN configurado
   useEffect(() => {
@@ -42,12 +55,14 @@ export const OwnerProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       if (!comercio) { setLoading(false); return; }
       setLoading(true);
       try {
-        const { data } = await supabase
-          .from('ventas_config').select('pin_hash')
-          .eq('comercio_id', comercio.id).maybeSingle();
-        setHasPin(!!data?.pin_hash);
+        // RPC: los miembros ya no leen el hash directamente (hardening del PIN).
+        const { data, error } = await supabase.rpc('tiene_pin', { p: { comercio_id: comercio.id } });
+        if (error) throw error;
+        setHasPin(data === true);
       } catch {
-        setHasPin(false);
+        // Sin conexión: si hay un PIN cacheado vigente, el comercio TIENE pin
+        // (evita que offline la UI ofrezca "crear PIN" sobre uno existente).
+        setHasPin(await hayCredencialOffline(CLAVE_PIN_DUENO));
       }
       setUnlocked(false);
       setLoading(false);
@@ -64,8 +79,8 @@ export const OwnerProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   const keepAlive = useCallback(() => {
     if (!isUnlocked) return;
     clearTimer();
-    timerRef.current = setTimeout(() => setUnlocked(false), LOCK_MS);
-  }, [isUnlocked]);
+    timerRef.current = setTimeout(() => setUnlocked(false), lockMin * 60 * 1000);
+  }, [isUnlocked, lockMin]);
 
   // Arrancar timer al desbloquear
   useEffect(() => {
@@ -77,13 +92,14 @@ export const OwnerProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   const setPin = useCallback(async (pin: string) => {
     if (!comercio || pin.length < 4) return false;
     try {
-      const pin_hash = await sha256(pin);
-      const { error } = await supabase.from('ventas_config').upsert({
-        comercio_id: comercio.id, pin_hash, updated_at: new Date().toISOString(),
+      // Server-side: hashea en bcrypt y valida que seas el dueño.
+      const { error } = await supabase.rpc('configurar_pin', {
+        p: { comercio_id: comercio.id, pin },
       });
       if (error) { console.error('[owner] setPin:', error.message); return false; }
       setHasPin(true);
       setUnlocked(true); // al crear el PIN, queda en modo dueño
+      guardarCredencialOffline(CLAVE_PIN_DUENO, pin); // habilitar fallback offline
       return true;
     } catch (e) {
       console.error('[owner] setPin error:', e);
@@ -91,24 +107,41 @@ export const OwnerProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     }
   }, [comercio]);
 
+  // Sin conexión: verificar contra la cache local (PBKDF2, vence a las 72 h
+  // del último desbloqueo online). Ver lib/authOffline.ts.
+  const unlockOffline = useCallback(async (pin: string) => {
+    const { ok } = await verificarCredencialOffline(CLAVE_PIN_DUENO, pin);
+    if (ok) setUnlocked(true);
+    return ok;
+  }, []);
+
   const tryUnlock = useCallback(async (pin: string) => {
     if (!comercio) return false;
     try {
-      const { data } = await supabase
-        .from('ventas_config').select('pin_hash')
-        .eq('comercio_id', comercio.id).maybeSingle();
-      if (!data?.pin_hash) return false;
-      const hash = await sha256(pin);
-      if (hash === data.pin_hash) { setUnlocked(true); return true; }
-      return false;
+      // Verificación SERVER-SIDE: el hash nunca viaja al cliente, así un
+      // empleado no puede leerlo y crackear el PIN offline.
+      const { data, error } = await supabase.rpc('verificar_pin', {
+        p: { comercio_id: comercio.id, pin },
+      });
+      if (error) {
+        // Error de red/RPC (no un PIN incorrecto) → intentar fallback offline.
+        console.error('[owner] tryUnlock:', error.message);
+        return unlockOffline(pin);
+      }
+      if (data === true) {
+        setUnlocked(true);
+        guardarCredencialOffline(CLAVE_PIN_DUENO, pin); // renovar cache offline
+        return true;
+      }
+      return false; // PIN incorrecto online: NO probar la cache
     } catch (e) {
       console.error('[owner] tryUnlock error:', e);
-      return false;
+      return unlockOffline(pin);
     }
-  }, [comercio]);
+  }, [comercio, unlockOffline]);
 
   return (
-    <Ctx.Provider value={{ hasPin, isUnlocked, loading, setPin, tryUnlock, lock, keepAlive }}>
+    <Ctx.Provider value={{ hasPin, isUnlocked, loading, lockMin, setLockMin, setPin, tryUnlock, lock, keepAlive }}>
       {children}
     </Ctx.Provider>
   );

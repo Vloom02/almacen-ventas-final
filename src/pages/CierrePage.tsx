@@ -7,22 +7,34 @@
 // El arqueo de efectivo es POR TURNO. Solo lectura sobre ventas_ventas.
 // ═══════════════════════════════════════════════════════════════════════════
 import React, { useEffect, useState, useMemo, useCallback } from 'react';
-import { IonContent } from '@ionic/react';
+import { IonContent, IonToast } from '@ionic/react';
+import { useHistory } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
+import { useOwner } from '../context/OwnerContext';
+import { openDB, getLocalSetting, setLocalSetting } from '../lib/outbox';
 import { formatMoney } from '../context/VentasContext';
 import { Card, StatCard, SectionTitle, EmptyState, Skeleton } from '../components/ui';
-import { BanknotesIcon, ArrowPathIcon } from '../components/ui/icons';
+import { BanknotesIcon, ArrowPathIcon, LockClosedIcon } from '../components/ui/icons';
+import PinPad from '../components/PinPad';
 
 interface VentaRow { id: string; total: number; metodo_pago: string; fecha: string; fiado: boolean; }
+interface CierreRow { id: string; cajero_nombre: string; hasta: string; total: number; diferencia: number; efectivo_contado: number; }
 type TurnoId = 'manana' | 'tarde' | 'noche';
 interface Turno { id: TurnoId; nombre: string; emoji: string; startHour: number; endHour: number; }
 
-const TURNOS: Turno[] = [
-  { id: 'manana', nombre: 'Mañana', emoji: '🌅', startHour: 6,  endHour: 14 },
-  { id: 'tarde',  nombre: 'Tarde',  emoji: '☀️', startHour: 14, endHour: 22 },
-  { id: 'noche',  nombre: 'Noche',  emoji: '🌙', startHour: 22, endHour: 6  },
-];
+// Horarios de turno CONFIGURABLES (hora de inicio de cada uno; el fin es el
+// inicio del siguiente, y la noche termina donde arranca la mañana del otro día).
+export interface HorasTurnos { manana: number; tarde: number; noche: number; }
+export const HORAS_DEFAULT: HorasTurnos = { manana: 6, tarde: 14, noche: 22 };
+
+export function armarTurnos(h: HorasTurnos): Turno[] {
+  return [
+    { id: 'manana', nombre: 'Mañana', emoji: '🌅', startHour: h.manana, endHour: h.tarde },
+    { id: 'tarde',  nombre: 'Tarde',  emoji: '☀️', startHour: h.tarde,  endHour: h.noche },
+    { id: 'noche',  nombre: 'Noche',  emoji: '🌙', startHour: h.noche,  endHour: h.manana },
+  ];
+}
 
 function rangoTurno(turno: Turno, ahora: Date): { inicio: Date; fin: Date } {
   const inicio = new Date(ahora);
@@ -32,23 +44,24 @@ function rangoTurno(turno: Turno, ahora: Date): { inicio: Date; fin: Date } {
     fin.setHours(turno.endHour, 0, 0, 0);
     return { inicio, fin };
   }
+  // Noche: cruza la medianoche → [inicio noche, inicio mañana del día siguiente)
   const h = ahora.getHours();
-  if (h >= 22) {
-    inicio.setHours(22, 0, 0, 0);
+  if (h >= turno.startHour) {
+    inicio.setHours(turno.startHour, 0, 0, 0);
     fin.setDate(fin.getDate() + 1);
-    fin.setHours(6, 0, 0, 0);
+    fin.setHours(turno.endHour, 0, 0, 0);
   } else {
     inicio.setDate(inicio.getDate() - 1);
-    inicio.setHours(22, 0, 0, 0);
-    fin.setHours(6, 0, 0, 0);
+    inicio.setHours(turno.startHour, 0, 0, 0);
+    fin.setHours(turno.endHour, 0, 0, 0);
   }
   return { inicio, fin };
 }
 
-function turnoActual(ahora: Date): TurnoId {
+export function turnoActual(ahora: Date, hs: HorasTurnos = HORAS_DEFAULT): TurnoId {
   const h = ahora.getHours();
-  if (h >= 6 && h < 14) return 'manana';
-  if (h >= 14 && h < 22) return 'tarde';
+  if (h >= hs.manana && h < hs.tarde) return 'manana';
+  if (h >= hs.tarde && h < hs.noche) return 'tarde';
   return 'noche';
 }
 
@@ -57,11 +70,41 @@ const metodoLabel = (k: string) =>
 
 const CierrePage: React.FC = () => {
   const { comercio, sucursalActiva } = useAuth();
+  const { setPin } = useOwner();
+  const history = useHistory();
   const [ventas, setVentas]   = useState<VentaRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [efectivoContado, setEfectivoContado] = useState('');
   const [selTurno, setSelTurno] = useState<TurnoId>(() => turnoActual(new Date()));
+  const [showPinPad, setShowPinPad] = useState(false);
+  const [pinToast, setPinToast] = useState(false);
+  const [horas, setHoras] = useState<HorasTurnos>(HORAS_DEFAULT);
+  const [editHoras, setEditHoras] = useState(false);
 
+  // Cargar los horarios elegidos por el usuario (persisten en este dispositivo).
+  useEffect(() => {
+    (async () => {
+      try {
+        await openDB();
+        const guardado = await getLocalSetting('horas-turnos');
+        if (guardado) {
+          const h = JSON.parse(guardado) as HorasTurnos;
+          if (h.manana < h.tarde && h.tarde < h.noche) {
+            setHoras(h);
+            setSelTurno(turnoActual(new Date(), h));
+          }
+        }
+      } catch { /* defaults */ }
+    })();
+  }, []);
+
+  const guardarHoras = (h: HorasTurnos) => {
+    setHoras(h);
+    setSelTurno(turnoActual(new Date(), h));
+    openDB().then(() => setLocalSetting('horas-turnos', JSON.stringify(h))).catch(() => {});
+  };
+
+  const TURNOS = useMemo(() => armarTurnos(horas), [horas]);
   const turno = TURNOS.find(t => t.id === selTurno)!;
   const { inicio, fin } = useMemo(() => rangoTurno(turno, new Date()), [turno]);
 
@@ -82,6 +125,19 @@ const CierrePage: React.FC = () => {
   useEffect(() => { load(); }, [load]);
   useEffect(() => { setEfectivoContado(''); }, [selTurno]);
 
+  // Cierres de caja de los cajeros (los registra cada uno al cerrar su turno).
+  const [cierres, setCierres] = useState<CierreRow[]>([]);
+  useEffect(() => {
+    if (!comercio) return;
+    (async () => {
+      const { data } = await supabase
+        .from('ventas_cierres').select('id, cajero_nombre, hasta, total, diferencia, efectivo_contado')
+        .eq('comercio_id', comercio.id)
+        .order('hasta', { ascending: false }).limit(10);
+      setCierres((data ?? []) as CierreRow[]);
+    })();
+  }, [comercio, ventas]);
+
   const total      = useMemo(() => ventas.reduce((s, v) => s + v.total, 0), [ventas]);
   const cantidad   = ventas.length;
   const ticketProm = cantidad > 0 ? total / cantidad : 0;
@@ -98,7 +154,7 @@ const CierrePage: React.FC = () => {
   const contado = parseFloat(efectivoContado) || 0;
   const diferencia = efectivoContado === '' ? null : contado - totalEfectivo;
 
-  const esTurnoActual = selTurno === turnoActual(new Date());
+  const esTurnoActual = selTurno === turnoActual(new Date(), horas);
   const fmtHora = (d: Date) => d.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
 
   return (
@@ -118,7 +174,7 @@ const CierrePage: React.FC = () => {
         <div style={{ display: 'flex', gap: 6, marginBottom: 14 }}>
           {TURNOS.map(t => {
             const activo = t.id === selTurno;
-            const esActual = t.id === turnoActual(new Date());
+            const esActual = t.id === turnoActual(new Date(), horas);
             return (
               <button key={t.id} onClick={() => setSelTurno(t.id)}
                 style={{
@@ -134,6 +190,41 @@ const CierrePage: React.FC = () => {
               </button>
             );
           })}
+        </div>
+
+        {/* Horarios configurables */}
+        <div style={{ marginBottom: 14 }}>
+          <button type="button" onClick={() => setEditHoras(!editHoras)}
+            style={{ background: 'none', border: 'none', fontSize: 12, color: 'var(--text-2)', cursor: 'pointer', fontFamily: 'inherit', padding: 0, fontWeight: 600 }}>
+            ⏰ {editHoras ? 'Cerrar editor de horarios' : 'Editar horarios de turno'}
+          </button>
+          {editHoras && (
+            <Card style={{ marginTop: 8, padding: 12 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 8 }}>
+                {([['manana', '🌅 Mañana'], ['tarde', '☀️ Tarde'], ['noche', '🌙 Noche']] as [keyof HorasTurnos, string][]).map(([k, lbl]) => (
+                  <div key={k}>
+                    <label style={{ fontSize: 11, color: 'var(--text-2)', display: 'block', marginBottom: 4 }}>{lbl} desde</label>
+                    <select
+                      value={horas[k]}
+                      aria-label={`Hora de inicio de ${lbl}`}
+                      onChange={e => {
+                        const v = parseInt(e.target.value, 10);
+                        const next = { ...horas, [k]: v };
+                        if (next.manana < next.tarde && next.tarde < next.noche) guardarHoras(next);
+                      }}
+                      style={{ width: '100%', padding: 8, fontSize: 14, fontFamily: 'var(--font-mono)', background: 'var(--surface)', color: 'var(--text)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)' }}>
+                      {Array.from({ length: 24 }, (_, h) => (
+                        <option key={h} value={h}>{String(h).padStart(2, '0')}:00</option>
+                      ))}
+                    </select>
+                  </div>
+                ))}
+              </div>
+              <p style={{ fontSize: 11, color: 'var(--text-3)', margin: '10px 0 0', lineHeight: 1.5 }}>
+                La noche termina donde arranca la mañana del día siguiente. Los horarios deben ir en orden (mañana &lt; tarde &lt; noche); si una opción no se guarda, ajustá primero los otros turnos.
+              </p>
+            </Card>
+          )}
         </div>
 
         {loading ? (
@@ -201,7 +292,62 @@ const CierrePage: React.FC = () => {
             </Card>
           </>
         )}
+
+        {/* Cierres de caja de los cajeros */}
+        {cierres.length > 0 && (
+          <Card style={{ marginTop: 14 }}>
+            <SectionTitle>Cierres de cajeros</SectionTitle>
+            {cierres.map((c, i) => (
+              <div key={c.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '9px 0', borderBottom: i < cierres.length - 1 ? '1px solid var(--border)' : 'none' }}>
+                <div>
+                  <div style={{ fontSize: 14, fontWeight: 600 }}>{c.cajero_nombre || '—'}</div>
+                  <div style={{ fontSize: 12, color: 'var(--text-3)' }}>{new Date(c.hasta).toLocaleString('es-AR', { dateStyle: 'short', timeStyle: 'short' })} · {formatMoney(c.total)}</div>
+                </div>
+                <span style={{ fontSize: 13, fontWeight: 700, fontFamily: 'var(--font-mono)',
+                  color: Math.abs(c.diferencia) < 0.01 ? 'var(--color-primary-dark)' : c.diferencia < 0 ? 'var(--color-danger)' : 'var(--color-info-dark)' }}>
+                  {Math.abs(c.diferencia) < 0.01 ? 'cuadra' : (c.diferencia > 0 ? '+' : '') + formatMoney(c.diferencia)}
+                </span>
+              </div>
+            ))}
+          </Card>
+        )}
+
+        {/* Seguridad: cambiar el PIN de dueño (la pestaña ya exige modo dueño) */}
+        <Card style={{ marginTop: 14 }}>
+          <SectionTitle>Seguridad</SectionTitle>
+          <button
+            type="button"
+            onClick={() => setShowPinPad(true)}
+            className="pressable"
+            style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '11px', border: '1px solid var(--border)', borderRadius: 'var(--radius)', background: 'var(--surface-2)', color: 'var(--text)', fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
+            <LockClosedIcon size={16} color="var(--color-primary)" /> Cambiar PIN de dueño
+          </button>
+          <button
+            type="button"
+            onClick={() => history.push('/cajeros')}
+            className="pressable"
+            style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '11px', marginTop: 8, border: '1px solid var(--border)', borderRadius: 'var(--radius)', background: 'var(--surface-2)', color: 'var(--text)', fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
+            👥 Gestionar cajeros
+          </button>
+          <p style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 8, textAlign: 'center' }}>
+            El PIN protege Dashboard, Caja, Historial y Deudas. Los cajeros inician turno con legajo + contraseña.
+          </p>
+        </Card>
       </div>
+
+      {showPinPad && (
+        <PinPad
+          mode="create"
+          titulo="Nuevo PIN de dueño"
+          onSuccess={async (pin) => {
+            const ok = await setPin(pin);
+            if (ok) { setShowPinPad(false); setPinToast(true); }
+            return ok;
+          }}
+          onCancel={() => setShowPinPad(false)}
+        />
+      )}
+      <IonToast isOpen={pinToast} onDidDismiss={() => setPinToast(false)} message="PIN actualizado" duration={2200} position="top" color="success" />
     </IonContent>
   );
 };
