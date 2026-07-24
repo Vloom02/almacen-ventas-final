@@ -115,7 +115,10 @@ export function payloadVenta(input: AplicarVentaInput, ventaId: string, fechaISO
     descuento: input.descuento,
     fecha: fechaISO,
     items: input.cart.map((c) => ({
-      producto_id: c.productoId, nombre: c.nombre, cantidad: c.qty, precio: c.precio,
+      // Los items de "venta rápida" (monto libre) usan un id sintético 'libre-…'
+      // y viajan sin producto_id → el server los registra sin descontar stock.
+      producto_id: c.productoId.startsWith('libre-') ? null : c.productoId,
+      nombre: c.nombre, cantidad: c.qty, precio: c.precio,
     })),
   };
 }

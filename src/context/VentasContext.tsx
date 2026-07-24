@@ -55,6 +55,7 @@ interface VentasCtx {
   escanear:        (codigo: string) => Promise<{ ok: boolean; msg: string }>;
   buscarPorNombre: (q: string) => Promise<Producto[]>;
   agregarProducto: (p: Producto) => Promise<{ ok: boolean; msg: string }>;
+  agregarMontoLibre: (monto: number, nombre?: string) => { ok: boolean; msg: string };
   setQty:    (productoId: string, qty: number) => void;
   quitar:    (productoId: string) => void;
   vaciar:    () => void;
@@ -205,6 +206,18 @@ export const VentasProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     dispatch({ type: 'SET_CART', payload: state.cart.filter(c => c.productoId !== productoId) });
   }, [state.cart]);
 
+  // Venta rápida: agrega una línea de monto libre (sin producto ni stock).
+  const agregarMontoLibre = useCallback((monto: number, nombre = 'Venta rápida') => {
+    if (!(monto > 0)) return { ok: false, msg: 'Monto inválido' };
+    const item: CartItem = {
+      productoId: `libre-${Date.now()}`, nombre, codigoBarras: '',
+      precio: Math.round(monto * 100) / 100, qty: 1, stockDisponible: 1,
+    };
+    dispatch({ type: 'SET_CART', payload: [...state.cart, item] });
+    hapticTap();
+    return { ok: true, msg: `${nombre} agregado` };
+  }, [state.cart]);
+
   const vaciar = useCallback(() => { dispatch({ type: 'SET_CART', payload: [] }); }, []);
 
   // ── Confirmar venta (FEFO) ───────────────────────────────────────────────────
@@ -259,7 +272,7 @@ export const VentasProvider: React.FC<{ children: ReactNode }> = ({ children }) 
   const sincronizar = useCallback(async () => { await reintentarBloqueados(); await doFlush(); }, [doFlush]);
 
   return (
-    <Ctx.Provider value={{ state, escanear, buscarPorNombre, agregarProducto, setQty, quitar, vaciar, confirmarVenta, sincronizar }}>
+    <Ctx.Provider value={{ state, escanear, buscarPorNombre, agregarProducto, agregarMontoLibre, setQty, quitar, vaciar, confirmarVenta, sincronizar }}>
       {children}
     </Ctx.Provider>
   );
