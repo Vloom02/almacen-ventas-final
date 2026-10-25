@@ -12,6 +12,7 @@ import { formatMoney } from '../context/VentasContext';
 import { useConfirm } from '../lib/useConfirm';
 import { Card, Button, Skeleton } from '../components/ui';
 
+import { parseMonto } from '../lib/numeros';
 interface VentaRow { total: number; metodo_pago: string; fiado: boolean; }
 interface CajaMov { tipo: 'apertura' | 'ingreso' | 'egreso'; monto: number; }
 
@@ -66,9 +67,9 @@ const CajeroCierrePage: React.FC = () => {
   const aperturaMov = movs.find(m => m.tipo === 'apertura');
   const ingresos = movs.filter(m => m.tipo === 'ingreso').reduce((s, m) => s + m.monto, 0);
   const egresos = movs.filter(m => m.tipo === 'egreso').reduce((s, m) => s + m.monto, 0);
-  const fondoNum = aperturaMov ? aperturaMov.monto : (parseFloat(fondo.replace(',', '.')) || 0);
+  const fondoNum = aperturaMov ? aperturaMov.monto : (parseMonto(fondo) || 0);
   const esperado = fondoNum + efectivoVentas + ingresos - egresos;
-  const contadoNum = parseFloat(contado.replace(',', '.'));
+  const contadoNum = parseMonto(contado);
   const diferencia = contado === '' || Number.isNaN(contadoNum) ? null : contadoNum - esperado;
 
   const cerrar = async () => {
@@ -133,7 +134,7 @@ const CajeroCierrePage: React.FC = () => {
 
             {/* Arqueo */}
             <Card>
-              <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 10 }}>Arqueo de efectivo</div>
+              <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 10 }}>Contar el efectivo</div>
 
               {aperturaMov ? (
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14, marginBottom: 8 }}>
@@ -143,7 +144,7 @@ const CajeroCierrePage: React.FC = () => {
               ) : (
                 <>
                   <label style={{ fontSize: 13, color: 'var(--text-2)', display: 'block', marginBottom: 4 }}>Fondo inicial (lo que había al empezar)</label>
-                  <input type="number" inputMode="decimal" value={fondo} onChange={e => setFondo(e.target.value)} placeholder="0" style={{ ...inputStyle, marginBottom: 12 }} />
+                  <input type="text" inputMode="decimal" value={fondo} onChange={e => setFondo(e.target.value)} placeholder="0" style={{ ...inputStyle, marginBottom: 12 }} />
                 </>
               )}
 
@@ -169,7 +170,7 @@ const CajeroCierrePage: React.FC = () => {
               </div>
 
               <label style={{ fontSize: 13, color: 'var(--text-2)', display: 'block', marginBottom: 4 }}>Efectivo contado</label>
-              <input type="number" inputMode="decimal" value={contado} onChange={e => setContado(e.target.value)} placeholder="0.00" style={inputStyle} />
+              <input type="text" inputMode="decimal" value={contado} onChange={e => setContado(e.target.value)} placeholder="0.00" style={inputStyle} />
 
               {diferencia !== null && (
                 <div style={{

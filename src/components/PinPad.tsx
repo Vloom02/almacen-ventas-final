@@ -9,11 +9,13 @@ import { LockClosedIcon } from './ui/icons';
 interface Props {
   mode: 'unlock' | 'create';
   titulo?: string;        // opcional: reemplaza el título del primer paso (ej. "Nuevo PIN de dueño")
+  subtitulo?: string;     // opcional: reemplaza el texto de ayuda del primer paso
+  extra?: React.ReactNode; // opcional: contenido bajo el subtítulo (ej. botón "Usar mi huella")
   onSuccess: (pin: string) => Promise<boolean>;
   onCancel: () => void;
 }
 
-const PinPad: React.FC<Props> = ({ mode, titulo: tituloProp, onSuccess, onCancel }) => {
+const PinPad: React.FC<Props> = ({ mode, titulo: tituloProp, subtitulo: subtituloProp, extra, onSuccess, onCancel }) => {
   const [pin, setPin]       = useState('');
   const [confirm, setConfirm] = useState('');
   const [stage, setStage]   = useState<'first' | 'confirm'>('first'); // solo para create
@@ -27,11 +29,11 @@ const PinPad: React.FC<Props> = ({ mode, titulo: tituloProp, onSuccess, onCancel
   };
 
   const titulo =
-    mode === 'unlock' ? 'Ingresá tu PIN' :
+    mode === 'unlock' ? (tituloProp ?? 'Ingresá tu PIN') :
     stage === 'first' ? (tituloProp ?? 'Creá un PIN de dueño') : 'Repetí el PIN';
   const subtitulo =
-    mode === 'unlock' ? 'Acceso a secciones del dueño' :
-    stage === 'first' ? 'Mínimo 4 dígitos. Lo vas a necesitar para ver caja, reportes y deudas.' :
+    mode === 'unlock' ? (subtituloProp ?? 'Acceso a secciones del dueño') :
+    stage === 'first' ? (subtituloProp ?? 'Mínimo 4 dígitos. Lo vas a necesitar para ver caja, reportes y deudas.') :
     'Confirmá el PIN para guardarlo';
 
   const press = async (d: string) => {
@@ -75,17 +77,18 @@ const PinPad: React.FC<Props> = ({ mode, titulo: tituloProp, onSuccess, onCancel
       <div style={{ width: 56, height: 56, borderRadius: 'var(--radius-full)', background: 'var(--color-primary-bg)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}>
         <LockClosedIcon size={28} color="var(--color-primary)" />
       </div>
-      <h2 style={{ fontSize: 19, fontWeight: 700, marginBottom: 4, textAlign: 'center' }}>{titulo}</h2>
-      <p style={{ fontSize: 13, color: 'var(--text-2)', marginBottom: 24, textAlign: 'center', maxWidth: 260, lineHeight: 1.5 }}>{subtitulo}</p>
+      <h2 style={{ fontSize: 22, fontWeight: 700, marginBottom: 4, textAlign: 'center' }}>{titulo}</h2>
+      <p style={{ fontSize: 16, color: 'var(--text-2)', marginBottom: 24, textAlign: 'center', maxWidth: 290, lineHeight: 1.5 }}>{subtitulo}</p>
+      {extra}
 
       {/* Dots */}
-      <div style={{ display: 'flex', gap: 12, marginBottom: 16, minHeight: 18 }}>
+      <div key={error} className={error ? 'anim-sacudir' : undefined} style={{ display: 'flex', gap: 12, marginBottom: 16, minHeight: 18 }}>
         {Array.from({ length: Math.max(4, dots) }).map((_, i) => (
-          <div key={i} style={{ width: 14, height: 14, borderRadius: '50%', background: i < dots ? 'var(--color-primary)' : 'var(--surface-3)', transition: 'background .15s' }} />
+          <div key={i} className={i === dots - 1 ? 'anim-rebote' : undefined} style={{ width: 18, height: 18, borderRadius: '50%', background: i < dots ? 'var(--color-primary)' : 'var(--surface-3)', transition: 'background .15s' }} />
         ))}
       </div>
 
-      {error && <p style={{ fontSize: 13, color: 'var(--color-danger)', marginBottom: 12, minHeight: 16 }}>{error}</p>}
+      {error && <p role="alert" style={{ fontSize: 16, fontWeight: 600, color: 'var(--color-danger)', marginBottom: 12, minHeight: 16 }}>{error}</p>}
       {!error && <div style={{ minHeight: 28 }} />}
 
       {/* Teclado */}
@@ -97,14 +100,14 @@ const PinPad: React.FC<Props> = ({ mode, titulo: tituloProp, onSuccess, onCancel
           </button>
         ))}
         <button onClick={backspace} className="pressable"
-          style={{ height: 64, borderRadius: 'var(--radius-lg)', border: 'none', background: 'transparent', fontSize: 20, color: 'var(--text-2)', cursor: 'pointer' }}>⌫</button>
+          style={{ height: 64, borderRadius: 'var(--radius-lg)', border: 'none', background: 'transparent', fontSize: 17, fontWeight: 600, color: 'var(--text-2)', cursor: 'pointer', fontFamily: 'inherit' }}>Borrar</button>
         <button onClick={() => press('0')} className="pressable"
           style={{ height: 64, borderRadius: 'var(--radius-lg)', border: '1px solid var(--border)', background: 'var(--surface)', fontSize: 24, fontWeight: 600, color: 'var(--text)', cursor: 'pointer' }}>0</button>
         <button onClick={submit} disabled={busy} className="pressable"
-          style={{ height: 64, borderRadius: 'var(--radius-lg)', border: 'none', background: 'var(--color-primary)', fontSize: 22, color: '#fff', cursor: 'pointer', opacity: busy ? 0.6 : 1 }}>✓</button>
+          style={{ height: 64, borderRadius: 'var(--radius-lg)', border: 'none', background: 'var(--color-primary)', fontSize: 19, fontWeight: 700, color: '#2a1a00', cursor: 'pointer', opacity: busy ? 0.6 : 1, fontFamily: 'inherit' }}>Listo</button>
       </div>
 
-      <button onClick={onCancel} style={{ background: 'none', border: 'none', fontSize: 14, color: 'var(--text-2)', cursor: 'pointer', fontFamily: 'inherit' }}>
+      <button onClick={onCancel} style={{ background: 'none', border: 'none', minHeight: 48, padding: '0 16px', fontSize: 16, color: 'var(--text-2)', cursor: 'pointer', fontFamily: 'inherit' }}>
         Cancelar
       </button>
     </div>

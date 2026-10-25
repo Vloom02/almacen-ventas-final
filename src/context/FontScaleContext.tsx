@@ -4,10 +4,14 @@
 // Persiste en IndexedDB, igual que el tema.
 // ═══════════════════════════════════════════════════════════════════════════
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
+import { Capacitor } from '@capacitor/core';
+import { TextZoom } from '@capacitor/text-zoom';
 import { openDB, getLocalSetting, setLocalSetting } from '../lib/outbox';
 
 export const ESCALA_MIN = 0.85;
 export const ESCALA_MAX = 1.5;
+// 110%: la app apunta a gente grande; cada uno puede cambiarla en Ajustes.
+const ESCALA_DEFAULT = 1.1;
 const KEY = 'fontScale';
 
 interface FontScaleCtx {
@@ -24,7 +28,7 @@ function aplicar(v: number) {
 }
 
 export const FontScaleProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [escala, setEscalaState] = useState<number>(1);
+  const [escala, setEscalaState] = useState<number>(ESCALA_DEFAULT);
 
   // Cargar la preferencia guardada al iniciar
   useEffect(() => {
@@ -32,12 +36,16 @@ export const FontScaleProvider: React.FC<{ children: ReactNode }> = ({ children 
       try {
         await openDB();
         const saved = parseFloat(await getLocalSetting(KEY));
-        if (!Number.isNaN(saved)) {
-          const e = Math.min(ESCALA_MAX, Math.max(ESCALA_MIN, saved));
-          setEscalaState(e);
-          aplicar(e);
+        // Android ya agranda el texto con el "Tamaño de fuente" del sistema: si la persona
+        // lo subió, arrancamos en 100% para no sumarle nuestro 110% (se saldría de pantalla).
+        let sugerida = ESCALA_DEFAULT;
+        if (Number.isNaN(saved) && Capacitor.isNativePlatform()) {
+          try { if ((await TextZoom.getPreferred()).value > 1.05) sugerida = 1; } catch { /* sin plugin */ }
         }
-      } catch { /* ignorar */ }
+        const e = Number.isNaN(saved) ? sugerida : Math.min(ESCALA_MAX, Math.max(ESCALA_MIN, saved));
+        setEscalaState(e);
+        aplicar(e);
+      } catch { aplicar(ESCALA_DEFAULT); }
     })();
   }, []);
 

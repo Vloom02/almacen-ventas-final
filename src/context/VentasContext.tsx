@@ -19,8 +19,11 @@ import { Haptics, ImpactStyle } from '@capacitor/haptics';
 async function hapticOk()  { try { await Haptics.impact({ style: ImpactStyle.Medium }); } catch { /* no-op */ } }
 async function hapticTap() { try { await Haptics.impact({ style: ImpactStyle.Light });  } catch { /* no-op */ } }
 
-export const formatMoney = (n: number) =>
-  '$' + Number(n).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+export const formatMoney = (n: number) => {
+  const v = Number(n);
+  const d = Number.isInteger(Math.round(v * 100) / 100) ? 0 : 2; // "$1.000" se lee mejor que "$1.000,00"
+  return '$' + v.toLocaleString('es-AR', { minimumFractionDigits: d, maximumFractionDigits: 2 });
+};
 
 interface VentasState {
   cart: CartItem[];

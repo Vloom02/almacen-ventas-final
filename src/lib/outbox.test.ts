@@ -10,6 +10,8 @@ describe('esErrorPermanente (clasificación para cuarentena)', () => {
     expect(esErrorPermanente('duplicate key value violates unique constraint')).toBe(true);
     expect(esErrorPermanente('invalid input syntax for type uuid')).toBe(true);
     expect(esErrorPermanente('lote inexistente o de otro comercio')).toBe(true);
+    expect(esErrorPermanente('precio inválido')).toBe(true);
+    expect(esErrorPermanente('descuento inválido')).toBe(true);
   });
 
   it('NO marca como permanentes los errores transitorios (red/timeout)', () => {

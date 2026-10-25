@@ -10,6 +10,7 @@ import { formatMoney } from '../context/VentasContext';
 import { Card, StatCard, SectionTitle, EmptyState, Skeleton } from '../components/ui';
 import { ChartBarIcon, ArrowPathIcon } from '../components/ui/icons';
 
+import BotonVolver from '../components/BotonVolver';
 interface VentaRow { id: string; total: number; metodo_pago: string; cliente: string; fecha: string; }
 interface ItemRow  { producto_id: string; cantidad: number; subtotal: number; }
 
@@ -147,10 +148,11 @@ const DashboardPage: React.FC = () => {
     <IonContent style={{ '--background': 'var(--bg)' } as React.CSSProperties}>
       <div style={{ padding: 'var(--space-4)', maxWidth: 520, margin: '0 auto', paddingBottom: 90 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
-          <h1 style={{ fontSize: 20, fontWeight: 700 }}>📊 Dashboard</h1>
+          <BotonVolver />
+          <h1 style={{ fontSize: 20, fontWeight: 700 }}>Resumen del día</h1>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <button onClick={exportarCSV} disabled={ventas.length === 0} aria-label="Exportar ventas a CSV" className="pressable"
-              style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 'var(--radius-full)', padding: '7px 12px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, fontWeight: 700, color: 'var(--text-2)', fontFamily: 'inherit', opacity: ventas.length === 0 ? 0.5 : 1 }}>
+              style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 'var(--radius-full)', padding: '7px 12px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5, fontSize: 13, fontWeight: 700, color: 'var(--text-2)', fontFamily: 'inherit', opacity: ventas.length === 0 ? 0.5 : 1 }}>
               ⬇ CSV
             </button>
             <button onClick={load} aria-label="Actualizar datos" className="pressable" style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 'var(--radius-full)', padding: 8, cursor: 'pointer', display: 'flex' }}>
@@ -211,11 +213,11 @@ const DashboardPage: React.FC = () => {
                   const compact = s.value >= 1000 ? `${Math.round(s.value / 1000)}k` : (s.value > 0 ? String(Math.round(s.value)) : '');
                   return (
                     <div key={s.key} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
-                      <div style={{ fontSize: 9, color: 'var(--text-3)', fontFamily: 'var(--font-mono)', height: 12 }}>{compact}</div>
+                      <div style={{ fontSize: 13, color: 'var(--text-3)', fontFamily: 'var(--font-mono)', height: 12 }}>{compact}</div>
                       <div style={{ width: '100%', height: 88, display: 'flex', alignItems: 'flex-end' }}>
                         <div style={{ width: '100%', height: Math.max(2, h), background: s.value > 0 ? 'var(--color-primary)' : 'var(--surface-3)', borderRadius: '4px 4px 0 0', transition: 'height .4s' }} />
                       </div>
-                      <div style={{ fontSize: 10, color: 'var(--text-2)' }}>{s.label}</div>
+                      <div style={{ fontSize: 13, color: 'var(--text-2)' }}>{s.label}</div>
                     </div>
                   );
                 })}
@@ -249,7 +251,7 @@ const DashboardPage: React.FC = () => {
               ) : topProductos.map((p, i) => (
                 <div key={p.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 0', borderBottom: i < topProductos.length - 1 ? '1px solid var(--border)' : 'none' }}>
                   <div style={{ display: 'flex', alignItems: 'center' }}>
-                    <div style={{ width: 24, height: 24, borderRadius: '50%', background: 'var(--color-primary-bg)', color: 'var(--color-primary-dark)', fontSize: 12, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{i + 1}</div>
+                    <div style={{ width: 24, height: 24, borderRadius: '50%', background: 'var(--color-primary-bg)', color: 'var(--color-primary-dark)', fontSize: 13, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{i + 1}</div>
                     <div style={{ fontSize: 14, marginLeft: 10 }}>{productos[p.id] ?? '—'}</div>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>

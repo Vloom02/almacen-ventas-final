@@ -14,11 +14,12 @@ interface ButtonProps {
   fullWidth?: boolean;
   type?: 'button'|'submit';
   style?: React.CSSProperties;
+  className?: string;
 }
 
 export const Button: React.FC<ButtonProps> = ({
   children, onClick, variant='primary', size='md',
-  disabled, loading, fullWidth, type='button', style,
+  disabled, loading, fullWidth, type='button', style, className,
 }) => {
   const base: React.CSSProperties = {
     display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
@@ -31,20 +32,21 @@ export const Button: React.FC<ButtonProps> = ({
     WebkitTapHighlightColor: 'transparent',
   };
   const sizes: Record<BtnSize, React.CSSProperties> = {
-    sm: { padding: '7px 14px', fontSize: 13 },
-    md: { padding: '11px 18px', fontSize: 15 },
-    lg: { padding: '14px 22px', fontSize: 16 },
+    // Mínimos táctiles pensados para dedos grandes (público mayor): 44 / 48 / 56 px.
+    sm: { padding: '8px 14px', fontSize: 14, minHeight: 44 },
+    md: { padding: '12px 18px', fontSize: 16, minHeight: 48 },
+    lg: { padding: '16px 22px', fontSize: 18, minHeight: 56 },
   };
   const variants: Record<BtnVariant, React.CSSProperties> = {
-    primary:   { background: 'var(--color-primary)',     color: '#fff' },
+    primary:   { background: 'var(--color-primary)',     color: '#2a1a00' }, // texto oscuro: blanco sobre ámbar daba 1.8:1
     secondary: { background: 'var(--surface-2)',         color: 'var(--text)',   border: '1px solid var(--border)' },
     ghost:     { background: 'transparent',              color: 'var(--text-2)', border: '1px solid var(--border)' },
     danger:    { background: 'var(--color-danger)',      color: '#fff' },
-    success:   { background: 'var(--color-primary)',     color: '#fff' },
+    success:   { background: 'var(--color-primary)',     color: '#2a1a00' },
   };
   return (
     <button type={type} onClick={!disabled&&!loading ? onClick : undefined} disabled={disabled}
-      className="pressable"
+      className={className ? `pressable ${className}` : 'pressable'}
       style={{ ...base, ...sizes[size], ...variants[variant], ...style }}>
       {loading
         ? <span style={{ width:16, height:16, border:'2px solid rgba(255,255,255,.4)', borderTopColor:'#fff', borderRadius:'50%', animation:'spin .6s linear infinite' }} />
@@ -92,23 +94,26 @@ interface InputProps {
   mono?: boolean;
   inputMode?: React.HTMLAttributes<HTMLInputElement>['inputMode'];
   style?: React.CSSProperties;
+  /** Se llama al apretar Enter (ej. enviar el login). */
+  onEnter?: () => void;
 }
 
 export const Input: React.FC<InputProps> = ({
   label, hint, error, value, onChange, placeholder, type='text',
-  maxLength, disabled, autoFocus, mono, inputMode, style,
+  maxLength, disabled, autoFocus, mono, inputMode, style, onEnter,
 }) => {
   const [focused, setFocused] = useState(false);
   return (
     <div style={{ display:'flex', flexDirection:'column', gap: 4, marginBottom: 12 }}>
-      {label && <label style={{ fontSize:13, fontWeight:500, color:'var(--text-2)' }}>{label}</label>}
+      {label && <label style={{ fontSize:15, fontWeight:600, color:'var(--text-2)' }}>{label}</label>}
       <input
         type={type} value={value} onChange={e => onChange(e.target.value)}
         placeholder={placeholder} maxLength={maxLength} disabled={disabled} autoFocus={autoFocus}
         inputMode={inputMode}
+        onKeyDown={onEnter ? (e => { if (e.key === 'Enter') onEnter(); }) : undefined}
         onFocus={() => setFocused(true)} onBlur={() => setFocused(false)}
         style={{
-          width:'100%', padding:'10px 14px', fontSize:15,
+          width:'100%', padding:'12px 14px', fontSize:17, minHeight: 48,
           fontFamily: mono ? 'var(--font-mono)' : 'var(--font-sans)',
           background: 'var(--surface)', color: 'var(--text)',
           border: `1.5px solid ${error ? 'var(--color-danger)' : focused ? 'var(--color-primary)' : 'var(--border)'}`,
@@ -119,8 +124,8 @@ export const Input: React.FC<InputProps> = ({
           ...style,
         }}
       />
-      {error && <span style={{ fontSize:12, color:'var(--color-danger)' }}>{error}</span>}
-      {hint && !error && <span style={{ fontSize:11, color:'var(--text-3)' }}>{hint}</span>}
+      {error && <span style={{ fontSize: 13, color:'var(--color-danger)' }}>{error}</span>}
+      {hint && !error && <span style={{ fontSize: 13, color:'var(--text-3)' }}>{hint}</span>}
     </div>
   );
 };
@@ -161,7 +166,7 @@ export const Badge: React.FC<{ children: ReactNode; color?: BadgeColor; dot?: bo
     gray:   { background:'var(--surface-2)',         color:'var(--text-2)',             border:'1px solid var(--border)' },
   };
   return (
-    <span style={{ display:'inline-flex', alignItems:'center', gap:5, padding:'3px 10px', borderRadius:'var(--radius-full)', fontSize:12, fontWeight:600, ...colors[color], ...style }}>
+    <span style={{ display:'inline-flex', alignItems:'center', gap:5, padding:'3px 10px', borderRadius:'var(--radius-full)', fontSize: 13, fontWeight:600, ...colors[color], ...style }}>
       {dot && <span style={{ width:6, height:6, borderRadius:'50%', background:'currentColor' }} />}
       {children}
     </span>
@@ -207,15 +212,15 @@ export const SyncBanner: React.FC<{ queueLen: number; isOnline: boolean }> = ({ 
   return (
     <div style={{
       position: 'fixed', top: 0, left: 0, right: 0, zIndex: 200,
-      padding: '8px 16px', textAlign: 'center', fontSize: 12, fontWeight: 600,
+      padding: '10px 16px', textAlign: 'center', fontSize: 15, fontWeight: 600,
       background: isOffline ? 'var(--color-warning-bg)' : 'var(--color-info-bg)',
       color:      isOffline ? 'var(--color-warning-dark)' : 'var(--color-info-dark)',
       borderBottom: `1px solid ${isOffline ? 'var(--color-warning-border)' : 'var(--color-info-border)'}`,
       animation: 'slideUp var(--transition) ease',
     }}>
       {isOffline
-        ? '📡 Sin conexión — los cambios se guardan localmente'
-        : `⏳ Sincronizando ${queueLen} cambio${queueLen > 1 ? 's' : ''}...`}
+        ? 'Sin internet: podés seguir vendiendo, se manda solo cuando vuelva'
+        : `Mandando ${queueLen} venta${queueLen > 1 ? 's' : ''} guardada${queueLen > 1 ? 's' : ''}...`}
     </div>
   );
 };
@@ -227,7 +232,7 @@ export const Divider: React.FC<{ style?: React.CSSProperties }> = ({ style }) =>
 
 // ─── Section title ────────────────────────────────────────────────────────────
 export const SectionTitle: React.FC<{ children: ReactNode }> = ({ children }) => (
-  <h3 style={{ fontSize:11, fontWeight:600, color:'var(--text-2)', textTransform:'uppercase', letterSpacing:'.6px', marginBottom:10 }}>
+  <h3 style={{ fontSize: 13, fontWeight:600, color:'var(--text-2)', textTransform:'uppercase', letterSpacing:'.6px', marginBottom:10 }}>
     {children}
   </h3>
 );
@@ -235,7 +240,37 @@ export const SectionTitle: React.FC<{ children: ReactNode }> = ({ children }) =>
 // ─── Stat card ────────────────────────────────────────────────────────────────
 export const StatCard: React.FC<{ label: string; value: ReactNode; color?: string }> = ({ label, value, color }) => (
   <div style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:'var(--radius)', padding:'10px 12px' }}>
-    <div style={{ fontSize:11, color:'var(--text-2)', marginBottom:3 }}>{label}</div>
+    <div style={{ fontSize: 13, color:'var(--text-2)', marginBottom:3 }}>{label}</div>
     <div style={{ fontSize:20, fontWeight:700, color: color || 'var(--text)' }}>{value}</div>
+  </div>
+);
+
+// ─── Opciones grandes ────────────────────────────────────────────────
+// Reemplaza al desplegable (<select>): para gente mayor los desplegables y
+// selectores chicos son de lo más difícil en pantallas táctiles (NN/g).
+// Botones de 48 px mínimo, todos a la vista, el elegido bien marcado.
+export interface Opcion { valor: string; etiqueta: string }
+
+export const Opciones: React.FC<{
+  opciones: Opcion[]; valor: string; onChange: (v: string) => void;
+  columnas?: number; etiqueta?: string;
+}> = ({ opciones, valor, onChange, columnas = 2, etiqueta }) => (
+  <div role="radiogroup" aria-label={etiqueta}
+    style={{ display: 'grid', gridTemplateColumns: `repeat(${columnas}, minmax(0, 1fr))`, gap: 8 }}>
+    {opciones.map((o, i) => {
+      const sel = o.valor === valor;
+      return (
+        <button key={o.valor} type="button" role="radio" aria-checked={sel} onClick={() => onChange(o.valor)}
+          className="pressable anim-entrar" style={{
+            '--i': i, minHeight: 48, padding: '8px 10px', borderRadius: 'var(--radius)',
+            border: sel ? '3px solid var(--color-primary)' : '1.5px solid var(--border)',
+            background: sel ? 'var(--color-primary-bg)' : 'var(--surface)', color: 'var(--text)',
+            fontSize: 16, fontWeight: sel ? 700 : 600, cursor: 'pointer', fontFamily: 'inherit',
+            overflowWrap: 'anywhere',
+          } as React.CSSProperties}>
+          {o.etiqueta}
+        </button>
+      );
+    })}
   </div>
 );

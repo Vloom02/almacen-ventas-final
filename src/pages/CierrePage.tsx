@@ -18,6 +18,8 @@ import { Card, StatCard, SectionTitle, EmptyState, Skeleton } from '../component
 import { BanknotesIcon, ArrowPathIcon, LockClosedIcon } from '../components/ui/icons';
 import PinPad from '../components/PinPad';
 
+import { parseMonto } from '../lib/numeros';
+import BotonVolver from '../components/BotonVolver';
 interface VentaRow { id: string; total: number; metodo_pago: string; fecha: string; fiado: boolean; }
 interface CierreRow { id: string; cajero_nombre: string; hasta: string; total: number; diferencia: number; efectivo_contado: number; }
 type TurnoId = 'manana' | 'tarde' | 'noche';
@@ -151,7 +153,7 @@ const CierrePage: React.FC = () => {
   const totalEfectivo = porMetodo['efectivo'] ?? 0;
   const totalFiado    = useMemo(() => ventas.filter(v => v.fiado).reduce((s, v) => s + v.total, 0), [ventas]);
 
-  const contado = parseFloat(efectivoContado) || 0;
+  const contado = parseMonto(efectivoContado) || 0;
   const diferencia = efectivoContado === '' ? null : contado - totalEfectivo;
 
   const esTurnoActual = selTurno === turnoActual(new Date(), horas);
@@ -161,7 +163,8 @@ const CierrePage: React.FC = () => {
     <IonContent style={{ '--background': 'var(--bg)' } as React.CSSProperties}>
       <div style={{ padding: 'var(--space-4)', maxWidth: 520, margin: '0 auto', paddingBottom: 90 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
-          <h1 style={{ fontSize: 20, fontWeight: 700 }}>🧾 Cierre de caja</h1>
+          <BotonVolver />
+          <h1 style={{ fontSize: 20, fontWeight: 700 }}>Cerrar la caja</h1>
           <button onClick={load} className="pressable" style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 'var(--radius-full)', padding: 8, cursor: 'pointer', display: 'flex' }}>
             <ArrowPathIcon size={16} color="var(--text-2)" />
           </button>
@@ -195,7 +198,7 @@ const CierrePage: React.FC = () => {
         {/* Horarios configurables */}
         <div style={{ marginBottom: 14 }}>
           <button type="button" onClick={() => setEditHoras(!editHoras)}
-            style={{ background: 'none', border: 'none', fontSize: 12, color: 'var(--text-2)', cursor: 'pointer', fontFamily: 'inherit', padding: 0, fontWeight: 600 }}>
+            style={{ background: 'none', border: 'none', fontSize: 13, color: 'var(--text-2)', cursor: 'pointer', fontFamily: 'inherit', padding: 0, fontWeight: 600 }}>
             ⏰ {editHoras ? 'Cerrar editor de horarios' : 'Editar horarios de turno'}
           </button>
           {editHoras && (
@@ -203,7 +206,7 @@ const CierrePage: React.FC = () => {
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 8 }}>
                 {([['manana', '🌅 Mañana'], ['tarde', '☀️ Tarde'], ['noche', '🌙 Noche']] as [keyof HorasTurnos, string][]).map(([k, lbl]) => (
                   <div key={k}>
-                    <label style={{ fontSize: 11, color: 'var(--text-2)', display: 'block', marginBottom: 4 }}>{lbl} desde</label>
+                    <label style={{ fontSize: 13, color: 'var(--text-2)', display: 'block', marginBottom: 4 }}>{lbl} desde</label>
                     <select
                       value={horas[k]}
                       aria-label={`Hora de inicio de ${lbl}`}
@@ -220,7 +223,7 @@ const CierrePage: React.FC = () => {
                   </div>
                 ))}
               </div>
-              <p style={{ fontSize: 11, color: 'var(--text-3)', margin: '10px 0 0', lineHeight: 1.5 }}>
+              <p style={{ fontSize: 13, color: 'var(--text-3)', margin: '10px 0 0', lineHeight: 1.5 }}>
                 La noche termina donde arranca la mañana del día siguiente. Los horarios deben ir en orden (mañana &lt; tarde &lt; noche); si una opción no se guarda, ajustá primero los otros turnos.
               </p>
             </Card>
@@ -260,7 +263,7 @@ const CierrePage: React.FC = () => {
             </Card>
 
             <Card>
-              <SectionTitle>Arqueo de efectivo · turno {turno.nombre.toLowerCase()}</SectionTitle>
+              <SectionTitle>Contar el efectivo · turno {turno.nombre.toLowerCase()}</SectionTitle>
               <p style={{ fontSize: 13, color: 'var(--text-2)', marginBottom: 10 }}>
                 Contá el efectivo en la caja al cerrar este turno y anotalo para verificar que cuadre.
               </p>
@@ -269,7 +272,7 @@ const CierrePage: React.FC = () => {
                 <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 600 }}>{formatMoney(totalEfectivo)}</span>
               </div>
               <label style={{ fontSize: 13, color: 'var(--text-2)', display: 'block', marginBottom: 4 }}>Efectivo contado en caja</label>
-              <input type="number" inputMode="decimal" value={efectivoContado} onChange={e => setEfectivoContado(e.target.value)}
+              <input type="text" inputMode="decimal" value={efectivoContado} onChange={e => setEfectivoContado(e.target.value)}
                 placeholder="0.00"
                 style={{ width: '100%', padding: 12, fontSize: 18, textAlign: 'center', fontFamily: 'var(--font-mono)', background: 'var(--surface)', color: 'var(--text)', border: '1.5px solid var(--border)', borderRadius: 'var(--radius)', outline: 'none' }} />
 
@@ -301,7 +304,7 @@ const CierrePage: React.FC = () => {
               <div key={c.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '9px 0', borderBottom: i < cierres.length - 1 ? '1px solid var(--border)' : 'none' }}>
                 <div>
                   <div style={{ fontSize: 14, fontWeight: 600 }}>{c.cajero_nombre || '—'}</div>
-                  <div style={{ fontSize: 12, color: 'var(--text-3)' }}>{new Date(c.hasta).toLocaleString('es-AR', { dateStyle: 'short', timeStyle: 'short' })} · {formatMoney(c.total)}</div>
+                  <div style={{ fontSize: 13, color: 'var(--text-3)' }}>{new Date(c.hasta).toLocaleString('es-AR', { dateStyle: 'short', timeStyle: 'short' })} · {formatMoney(c.total)}</div>
                 </div>
                 <span style={{ fontSize: 13, fontWeight: 700, fontFamily: 'var(--font-mono)',
                   color: Math.abs(c.diferencia) < 0.01 ? 'var(--color-primary-dark)' : c.diferencia < 0 ? 'var(--color-danger)' : 'var(--color-info-dark)' }}>
@@ -329,7 +332,7 @@ const CierrePage: React.FC = () => {
             style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '11px', marginTop: 8, border: '1px solid var(--border)', borderRadius: 'var(--radius)', background: 'var(--surface-2)', color: 'var(--text)', fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
             👥 Gestionar cajeros
           </button>
-          <p style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 8, textAlign: 'center' }}>
+          <p style={{ fontSize: 13, color: 'var(--text-3)', marginTop: 8, textAlign: 'center' }}>
             El PIN protege Dashboard, Caja, Historial y Deudas. Los cajeros inician turno con legajo + contraseña.
           </p>
         </Card>

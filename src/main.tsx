@@ -2,15 +2,17 @@ import React from 'react';
 import { createRoot } from 'react-dom/client';
 import * as Sentry from '@sentry/react';
 import App from './App';
-import { StatusBar, Style } from '@capacitor/status-bar';
+import { StatusBar } from '@capacitor/status-bar';
 import { Keyboard } from '@capacitor/keyboard';
 import { initSentry } from './lib/sentry';
+import { aplicarMovimiento, movimientoActivo } from './lib/movimiento';
 
 initSentry(); // captura de errores (no-op en desarrollo)
+aplicarMovimiento(movimientoActivo());
 
 // Android: don't let content go behind status bar
 StatusBar.setOverlaysWebView({ overlay: false }).catch(()=>{});
-StatusBar.setStyle({ style: Style.Dark }).catch(()=>{});
+// El estilo (íconos claros u oscuros) lo fija ThemeContext según el tema.
 
 // Keyboard handling
 Keyboard.setAccessoryBarVisible({ isVisible: false }).catch(()=>{});

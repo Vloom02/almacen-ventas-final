@@ -53,7 +53,7 @@ const StockPage: React.FC = () => {
   return (
     <IonContent style={{ '--background': 'var(--bg)' } as React.CSSProperties}>
       <div style={{ padding: 'var(--space-4)', maxWidth: 520, margin: '0 auto', paddingBottom: 90 }}>
-        <h1 style={{ fontSize: 20, fontWeight: 700, marginBottom: 4 }}>📦 Stock</h1>
+        <h1 style={{ fontSize: 20, fontWeight: 700, marginBottom: 4 }}>Precios y stock</h1>
         <p style={{ fontSize: 13, color: 'var(--text-2)', marginBottom: 14 }}>
           {sucursalActiva?.nombre ?? 'Sucursal'} · gestionado por Stockly
         </p>
@@ -84,7 +84,7 @@ const StockPage: React.FC = () => {
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontWeight: 600, fontSize: 14 }}>{r.producto.nombre}</div>
-                    <div style={{ fontSize: 11, color: 'var(--text-3)', fontFamily: 'var(--font-mono)' }}>{r.producto.codigo_barras || 'sin código'}</div>
+                    <div style={{ fontSize: 13, color: 'var(--text-3)', fontFamily: 'var(--font-mono)' }}>{r.producto.codigo_barras || 'sin código'}</div>
                     <div style={{ fontSize: 13, color: 'var(--color-accent)', fontWeight: 600, marginTop: 2 }}>{formatMoney(r.producto.precio)}</div>
                   </div>
                   <div style={{ textAlign: 'right' }}>
@@ -94,11 +94,11 @@ const StockPage: React.FC = () => {
                 </div>
                 {r.lotes.length > 1 && (
                   <div style={{ marginTop: 8, paddingTop: 8, borderTop: '1px dashed var(--border)' }}>
-                    <div style={{ fontSize: 11, color: 'var(--text-2)', marginBottom: 4 }}>{r.lotes.length} lotes:</div>
+                    <div style={{ fontSize: 13, color: 'var(--text-2)', marginBottom: 4 }}>{r.lotes.length} lotes:</div>
                     {r.lotes.map(l => {
                       const d = diasParaVencer(l.fecha_vencimiento);
                       return (
-                        <div key={l.id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: 'var(--text-2)', padding: '1px 0' }}>
+                        <div key={l.id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, color: 'var(--text-2)', padding: '1px 0' }}>
                           <span>{l.cantidad} u. {l.numero_lote ? `· ${l.numero_lote}` : ''}</span>
                           <span style={{ color: d !== null && d <= 7 ? 'var(--color-danger)' : 'var(--text-3)' }}>{l.fecha_vencimiento ? new Date(l.fecha_vencimiento).toLocaleDateString('es-AR') : 'sin vto.'}</span>
                         </div>

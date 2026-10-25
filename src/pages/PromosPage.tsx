@@ -12,6 +12,7 @@ import { useConfirm } from '../lib/useConfirm';
 import { TagIcon, TrashIcon, MagnifyingGlass } from '../components/ui/icons';
 import { Producto } from '../types';
 
+import BotonVolver from '../components/BotonVolver';
 interface PromoRow {
   id: string; producto_id: string; tipo: '2x1' | 'pct_cantidad';
   min_cant: number; pct: number; activa: boolean; nombre?: string;
@@ -40,7 +41,7 @@ const PromosPage: React.FC = () => {
     const { data } = await supabase.from('ventas_promos')
       .select('id, producto_id, tipo, min_cant, pct, activa, productos(nombre)')
       .eq('comercio_id', comercio.id).order('creado_en', { ascending: false });
-    setPromos((data ?? []).map((r: any) => ({ ...r, nombre: r.productos?.nombre ?? '(producto)' })));
+    setPromos((data ?? []).map((r) => ({ ...r, nombre: (r.productos as { nombre?: string } | null)?.nombre ?? '(producto)' })) as PromoRow[]);
     setLoading(false);
   };
   useEffect(() => { load(); }, [comercio]);
@@ -82,7 +83,8 @@ const PromosPage: React.FC = () => {
   return (
     <IonContent style={{ '--background': 'var(--bg)' } as React.CSSProperties}>
       <div style={{ padding: 'var(--space-4)', maxWidth: 520, margin: '0 auto', paddingBottom: 90 }}>
-        <h1 style={{ fontSize: 20, fontWeight: 700, marginBottom: 4 }}>🎁 Promos</h1>
+        <BotonVolver />
+        <h1 style={{ fontSize: 20, fontWeight: 700, marginBottom: 4 }}>Ofertas</h1>
         <p style={{ fontSize: 13, color: 'var(--text-2)', marginBottom: 14 }}>
           2x1 o descuento por cantidad. Se aplican solas en el carrito.
         </p>
@@ -122,12 +124,12 @@ const PromosPage: React.FC = () => {
           {tipo === 'pct_cantidad' && (
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 10 }}>
               <div>
-                <label style={{ fontSize: 12, color: 'var(--text-2)', display: 'block', marginBottom: 3 }}>Llevando al menos</label>
+                <label style={{ fontSize: 13, color: 'var(--text-2)', display: 'block', marginBottom: 3 }}>Llevando al menos</label>
                 <input type="number" value={minCant} onChange={e => setMinCant(e.target.value)}
                   style={{ width: '100%', padding: 9, fontSize: 15, textAlign: 'center', background: 'var(--surface)', color: 'var(--text)', border: '1.5px solid var(--border)', borderRadius: 'var(--radius)', outline: 'none' }} />
               </div>
               <div>
-                <label style={{ fontSize: 12, color: 'var(--text-2)', display: 'block', marginBottom: 3 }}>Descuento (%)</label>
+                <label style={{ fontSize: 13, color: 'var(--text-2)', display: 'block', marginBottom: 3 }}>Descuento (%)</label>
                 <input type="number" value={pct} onChange={e => setPct(e.target.value)}
                   style={{ width: '100%', padding: 9, fontSize: 15, textAlign: 'center', background: 'var(--surface)', color: 'var(--text)', border: '1.5px solid var(--border)', borderRadius: 'var(--radius)', outline: 'none' }} />
               </div>
@@ -141,7 +143,7 @@ const PromosPage: React.FC = () => {
         {loading ? (
           <><Skeleton height={60} style={{ marginBottom: 7 }} /><Skeleton height={60} /></>
         ) : promos.length === 0 ? (
-          <EmptyState icon={<TagIcon size={44} color="var(--text-3)" />} title="Sin promos"
+          <EmptyState icon={<TagIcon size={44} color="var(--text-3)" />} title="Sin ofertas"
             description="Creá la primera arriba: elegí un producto y el tipo de promo." />
         ) : (
           promos.map(p => (
@@ -150,7 +152,7 @@ const PromosPage: React.FC = () => {
                 <span style={{ fontSize: 18 }}>🎁</span>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontWeight: 600, fontSize: 14, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.nombre}</div>
-                  <div style={{ fontSize: 12, color: 'var(--color-primary-dark)', fontWeight: 700 }}>{etiqueta(p)}</div>
+                  <div style={{ fontSize: 13, color: 'var(--color-primary-dark)', fontWeight: 700 }}>{etiqueta(p)}</div>
                 </div>
                 <button onClick={() => borrar(p)} aria-label="Quitar promo" className="pressable"
                   style={{ padding: 8, border: '1px solid var(--border)', borderRadius: 'var(--radius)', background: 'var(--surface)', color: 'var(--color-danger)', cursor: 'pointer' }}>

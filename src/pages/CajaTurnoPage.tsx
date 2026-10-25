@@ -11,6 +11,7 @@ import { useEmpleado } from '../context/EmpleadoContext';
 import { formatMoney } from '../context/VentasContext';
 import { Card, Button } from '../components/ui';
 
+import { parseMonto } from '../lib/numeros';
 export interface CajaMov { id: string; tipo: 'apertura' | 'ingreso' | 'egreso'; monto: number; motivo: string | null; fecha: string; }
 
 const CajaTurnoPage: React.FC = () => {
@@ -58,13 +59,13 @@ const CajaTurnoPage: React.FC = () => {
   };
 
   const guardarApertura = () => {
-    const m = Math.round((parseFloat(fondo.replace(',', '.')) || 0) * 100) / 100;
+    const m = Math.round((parseMonto(fondo) || 0) * 100) / 100;
     if (m < 0) return;
     insertar('apertura', m, 'Fondo inicial'); setFondo('');
   };
 
   const guardarMov = () => {
-    const m = Math.round((parseFloat(monto.replace(',', '.')) || 0) * 100) / 100;
+    const m = Math.round((parseMonto(monto) || 0) * 100) / 100;
     if (m <= 0) { setToast({ show: true, msg: 'Ingresá un monto válido', color: 'danger' }); return; }
     insertar(tipo, m, motivo.trim()); setMonto(''); setMotivo('');
   };
@@ -78,15 +79,15 @@ const CajaTurnoPage: React.FC = () => {
     <IonContent style={{ '--background': 'var(--bg)' } as React.CSSProperties}>
       <div style={{ padding: 'var(--space-4)', maxWidth: 520, margin: '0 auto', paddingBottom: 'calc(40px + var(--sab,env(safe-area-inset-bottom)))', paddingTop: 'calc(var(--space-4) + var(--ion-safe-area-top, 0px))' }}>
         <h1 style={{ fontSize: 20, fontWeight: 700, marginBottom: 2 }}>Caja del turno</h1>
-        <p style={{ fontSize: 13, color: 'var(--text-2)', marginBottom: 16 }}>{cajero?.nombre ? `Turno de ${cajero.nombre}` : 'Movimientos de efectivo'}</p>
+        <p style={{ fontSize: 13, color: 'var(--text-2)', marginBottom: 16 }}>{cajero?.nombre ? `Turno de ${cajero.nombre}` : 'Entradas y salidas de plata'}</p>
 
         {/* Apertura */}
         {!apertura ? (
           <Card style={{ marginBottom: 14 }}>
             <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 8 }}>Apertura de caja</div>
-            <p style={{ fontSize: 12, color: 'var(--text-3)', margin: '0 0 10px' }}>Declará el efectivo con el que arrancás (fondo para dar cambio).</p>
+            <p style={{ fontSize: 13, color: 'var(--text-3)', margin: '0 0 10px' }}>Declará el efectivo con el que arrancás (fondo para dar cambio).</p>
             <div style={{ display: 'flex', gap: 8 }}>
-              <input type="number" inputMode="decimal" value={fondo} onChange={e => setFondo(e.target.value)} placeholder="0" style={{ ...inputStyle, flex: 1 }} />
+              <input type="text" inputMode="decimal" value={fondo} onChange={e => setFondo(e.target.value)} placeholder="0" style={{ ...inputStyle, flex: 1 }} />
               <Button onClick={guardarApertura} loading={busy}>Abrir caja</Button>
             </div>
           </Card>
@@ -113,7 +114,7 @@ const CajaTurnoPage: React.FC = () => {
               </button>
             ))}
           </div>
-          <input type="number" inputMode="decimal" value={monto} onChange={e => setMonto(e.target.value)} placeholder="Monto" style={{ ...inputStyle, marginBottom: 8 }} />
+          <input type="text" inputMode="decimal" value={monto} onChange={e => setMonto(e.target.value)} placeholder="Monto" style={{ ...inputStyle, marginBottom: 8 }} />
           <input value={motivo} onChange={e => setMotivo(e.target.value)} placeholder="Motivo (ej: cambio, retiro, pago proveedor)" style={{ ...inputStyle, marginBottom: 10 }} />
           <Button fullWidth onClick={guardarMov} loading={busy}>Agregar {tipo}</Button>
         </Card>
@@ -124,7 +125,7 @@ const CajaTurnoPage: React.FC = () => {
             <span style={{ fontSize: 14, color: 'var(--text-2)' }}>Efectivo de movimientos</span>
             <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 700 }}>{formatMoney(enCaja)}</span>
           </div>
-          <p style={{ fontSize: 11, color: 'var(--text-3)', margin: '0 0 8px' }}>(apertura + ingresos − egresos; sin contar las ventas)</p>
+          <p style={{ fontSize: 13, color: 'var(--text-3)', margin: '0 0 8px' }}>(apertura + ingresos − egresos; sin contar las ventas)</p>
           {movs.filter(m => m.tipo !== 'apertura').length === 0 ? (
             <p style={{ fontSize: 13, color: 'var(--text-3)', textAlign: 'center', padding: 10 }}>Sin movimientos todavía.</p>
           ) : movs.filter(m => m.tipo !== 'apertura').map(m => (
@@ -133,7 +134,7 @@ const CajaTurnoPage: React.FC = () => {
                 <span style={{ fontSize: 14, fontWeight: 600, color: m.tipo === 'ingreso' ? 'var(--color-primary-dark)' : 'var(--color-danger)' }}>
                   {m.tipo === 'ingreso' ? '➕' : '➖'} {m.motivo || (m.tipo === 'ingreso' ? 'Ingreso' : 'Egreso')}
                 </span>
-                <div style={{ fontSize: 11, color: 'var(--text-3)' }}>{new Date(m.fecha).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}</div>
+                <div style={{ fontSize: 13, color: 'var(--text-3)' }}>{new Date(m.fecha).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}</div>
               </div>
               <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, color: m.tipo === 'ingreso' ? 'var(--color-primary-dark)' : 'var(--color-danger)' }}>
                 {m.tipo === 'ingreso' ? '+' : '−'}{formatMoney(m.monto)}

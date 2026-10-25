@@ -14,9 +14,9 @@ const KEY = 'onboarding-ventas';
 
 const PASOS = [
   { emoji: '🛒', titulo: 'Vendé en segundos', texto: 'Escaneá el código o buscá por nombre. Se arma el carrito y descontás stock con un toque.' },
-  { emoji: '📦', titulo: 'Stock siempre al día', texto: 'Cada venta descuenta el inventario por vencimiento (FEFO). Lo cargás una vez en Stockly y se comparte.' },
-  { emoji: '📒', titulo: 'Fiado bajo control', texto: 'Registrá ventas fiadas, cobrá de a poco y mandá recordatorios por WhatsApp desde Deudas.' },
-  { emoji: '🧾', titulo: 'Caja y reportes', texto: 'Cerrá la caja por turno con arqueo de efectivo y mirá tus números en el Dashboard.' },
+  { emoji: '📦', titulo: 'Stock siempre al día', texto: 'Cada venta descuenta la mercadería, empezando por lo que vence antes. La cargás una vez en Stockly y se comparte.' },
+  { emoji: '📒', titulo: 'Fiado bajo control', texto: 'Registrá ventas fiadas, cobrá de a poco y mandá recordatorios por WhatsApp desde Fiado.' },
+  { emoji: '🧾', titulo: 'Caja y reportes', texto: 'Cerrá la caja en cada turno contando la plata, y mirá cuánto vendiste en el Resumen del día.' },
 ];
 
 const OnboardingVentas: React.FC = () => {

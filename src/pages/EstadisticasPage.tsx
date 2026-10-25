@@ -12,6 +12,7 @@ import { formatMoney } from '../context/VentasContext';
 import { Card, EmptyState, Skeleton } from '../components/ui';
 import { ChartBarIcon } from '../components/ui/icons';
 
+import BotonVolver from '../components/BotonVolver';
 interface TopProducto { nombre: string; cantidad: number; plata: number; }
 
 const EstadisticasPage: React.FC = () => {
@@ -66,7 +67,8 @@ const EstadisticasPage: React.FC = () => {
   return (
     <IonContent style={{ '--background': 'var(--bg)' } as React.CSSProperties}>
       <div style={{ padding: 'var(--space-4)', maxWidth: 520, margin: '0 auto', paddingBottom: 90 }}>
-        <h1 style={{ fontSize: 20, fontWeight: 700, marginBottom: 4 }}>📈 Estadísticas</h1>
+        <BotonVolver />
+        <h1 style={{ fontSize: 20, fontWeight: 700, marginBottom: 4 }}>Lo más vendido</h1>
         <p style={{ fontSize: 13, color: 'var(--text-2)', marginBottom: 14 }}>Últimos 30 días (necesita conexión)</p>
 
         {loading ? (
@@ -78,11 +80,11 @@ const EstadisticasPage: React.FC = () => {
           <>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,1fr)', gap: 8, marginBottom: 14 }}>
               <Card variant="bordered" style={{ padding: 10 }}>
-                <div style={{ fontSize: 11, color: 'var(--text-2)' }}>Ventas</div>
+                <div style={{ fontSize: 13, color: 'var(--text-2)' }}>Ventas</div>
                 <div style={{ fontSize: 20, fontWeight: 700 }}>{totales.ventas}</div>
               </Card>
               <Card variant="bordered" style={{ padding: 10 }}>
-                <div style={{ fontSize: 11, color: 'var(--text-2)' }}>Facturado</div>
+                <div style={{ fontSize: 13, color: 'var(--text-2)' }}>Facturado</div>
                 <div style={{ fontSize: 18, fontWeight: 700, fontFamily: 'var(--font-mono)', paddingTop: 2 }}>{formatMoney(totales.plata)}</div>
               </Card>
             </div>
@@ -120,7 +122,7 @@ const EstadisticasPage: React.FC = () => {
                   </div>
                 ))}
               </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, color: 'var(--text-3)', marginTop: 6 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, color: 'var(--text-3)', marginTop: 6 }}>
                 <span>0 h</span><span>6 h</span><span>12 h</span><span>18 h</span><span>23 h</span>
               </div>
             </Card>

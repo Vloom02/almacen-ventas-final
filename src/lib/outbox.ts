@@ -88,7 +88,7 @@ export function esErrorPermanente(msg?: string): boolean {
   if (!msg) return false;
   const m = msg.toLowerCase();
   return ['no pertenece', 'no autorizado', 'permission denied', 'row-level security',
-          'violates', 'duplicate key', 'invalid input', 'constraint', 'inexistente']
+          'violates', 'duplicate key', 'invalid input', 'constraint', 'inexistente', 'inválid']
     .some(p => m.includes(p));
 }
 
@@ -174,10 +174,21 @@ async function syncPagoOffline(p: OfflinePagoPayload): Promise<void> {
 }
 
 // ─── Cache catálogo + lotes para vender offline ───────────────────────────────
+// Una sola transacción: si la app se cierra a mitad de camino, IndexedDB
+// descarta todo y queda el catálogo anterior (nunca uno vacío o a medias).
 export async function cacheCatalogo(productos: unknown[], lotes: unknown[]): Promise<void> {
-  await idbClear('productos'); await idbClear('lotes');
-  for (const p of productos) await idbPut('productos', p);
-  for (const l of lotes)     await idbPut('lotes', l);
+  await openDB();
+  await new Promise<void>((res, rej) => {
+    const t = db!.transaction(['productos', 'lotes'], 'readwrite');
+    const sp = t.objectStore('productos');
+    const sl = t.objectStore('lotes');
+    sp.clear(); sl.clear();
+    for (const p of productos) sp.put(p);
+    for (const l of lotes)     sl.put(l);
+    t.oncomplete = () => res();
+    t.onerror = () => rej(t.error);
+    t.onabort = () => rej(t.error);
+  });
 }
 
 export async function getLocalSetting(k: string): Promise<string> {

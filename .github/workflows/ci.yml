@@ -15,9 +15,7 @@ jobs:
           node-version: 20
           cache: npm
       - name: Instalar dependencias
-        # --legacy-peer-deps: el proyecto tiene un desajuste preexistente entre
-        # @capacitor/android (8.4) y @capacitor/core (8.3.4).
-        run: npm ci --legacy-peer-deps
+        run: npm ci
       - name: Lint
         run: npm run lint
       - name: Typecheck

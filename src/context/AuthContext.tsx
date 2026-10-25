@@ -152,8 +152,13 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     setSt(prev => ({ ...prev, sucursalActiva: s }));
   };
 
-  // plan: trial / activo → permitido; suspendido → bloqueado
-  const planBloqueado = st.comercio?.plan === 'suspendido';
+  // plan: activo / trial vigente → permitido; suspendido o trial vencido → bloqueado
+  // (misma regla que Stockly: el trial vale hasta el fin del día de trial_hasta)
+  const planBloqueado = !!st.comercio && (
+    st.comercio.plan === 'suspendido' ||
+    ((st.comercio.plan || 'trial') === 'trial' && !!st.comercio.trial_hasta &&
+      finDelDiaLocal(st.comercio.trial_hasta) < new Date())
+  );
 
   return (
     <AuthContext.Provider value={{ ...st, login, register, logout, setSucursalActiva, planBloqueado }}>
@@ -167,3 +172,10 @@ export const useAuth = () => {
   if (!ctx) throw new Error('useAuth must be inside AuthProvider');
   return ctx;
 };
+
+/** Fin (23:59:59 local) del día de una fecha o timestamptz (misma regla que Stockly). */
+function finDelDiaLocal(s: string): Date {
+  const d = s.length <= 10 ? new Date(s + 'T00:00:00') : new Date(s);
+  d.setHours(23, 59, 59, 999);
+  return d;
+}
