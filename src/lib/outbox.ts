@@ -4,8 +4,8 @@
 // stock MÁS RECIENTE de la nube (aplica delta, no pisa cantidad vieja).
 // ═══════════════════════════════════════════════════════════════════════════
 import { supabase } from './supabase';
-import { OutboxItem, CartItem } from '../types';
-import { payloadVenta } from './ventas-engine';
+import { OutboxItem, CartItem, Lote } from '../types';
+import { payloadVenta, calcularFefo } from './ventas-engine';
 
 const DB_NAME = 'ventas-db';
 const DB_VER  = 1;
@@ -192,6 +192,26 @@ export async function cacheCatalogo(productos: unknown[], lotes: unknown[]): Pro
     t.onerror = () => rej(t.error);
     t.onabort = () => rej(t.error);
   });
+}
+
+/**
+ * Descuenta del cache local de lotes lo vendido offline (FEFO, igual que el server),
+ * para que el stock mostrado no quede viejo hasta reconectar. Devuelve solo los
+ * lotes que cambiaron. Al sincronizar, el server recalcula y el cache se reemplaza.
+ */
+export function descontarLotesLocales(lotes: Lote[], cart: CartItem[]): Lote[] {
+  const cambiados: Lote[] = [];
+  for (const item of cart) {
+    const delProducto = lotes
+      .filter(l => l.producto_id === item.productoId && !l.retirado && l.cantidad > 0)
+      .sort((a, b) => (a.fecha_vencimiento ?? '9999').localeCompare(b.fecha_vencimiento ?? '9999'));
+    for (const d of calcularFefo(delProducto, item.qty)) {
+      const lote = delProducto.find(l => l.id === d.loteId)!;
+      lote.cantidad = d.cantidadNueva;
+      if (!cambiados.includes(lote)) cambiados.push(lote);
+    }
+  }
+  return cambiados;
 }
 
 /**

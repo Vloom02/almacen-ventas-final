@@ -11,7 +11,7 @@ import {
 } from '../lib/ventas-engine';
 import {
   openDB, enqueueOutbox, flushOutbox, cacheCatalogo, idbGetAll,
-  idbPut, OfflineVentaPayload, reintentarBloqueados, ventasLocalesDeHoy,
+  idbPut, OfflineVentaPayload, reintentarBloqueados, ventasLocalesDeHoy, descontarLotesLocales,
 } from '../lib/outbox';
 import { chequearVencimientos } from '../lib/vencimientos';
 import { Haptics, ImpactStyle } from '@capacitor/haptics';
@@ -264,6 +264,9 @@ export const VentasProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       };
       await idbPut('ventas', { id: ventaId, ...payload });
       await enqueueOutbox('venta', payload);
+      // Reflejar lo vendido en el stock local (si no, se sigue mostrando el de antes).
+      for (const l of descontarLotesLocales(await idbGetAll<Lote>('lotes'), state.cart)) await idbPut('lotes', l);
+      lotesCacheRef.current = {};
       const out = await idbGetAll('outbox');
       dispatch({ type: 'SET_OUTBOX', payload: out.length });
       vaciar(); hapticOk();
