@@ -11,7 +11,7 @@ import {
 } from '../lib/ventas-engine';
 import {
   openDB, enqueueOutbox, flushOutbox, cacheCatalogo, idbGetAll,
-  idbPut, OfflineVentaPayload, reintentarBloqueados,
+  idbPut, OfflineVentaPayload, reintentarBloqueados, ventasLocalesDeHoy,
 } from '../lib/outbox';
 import { chequearVencimientos } from '../lib/vencimientos';
 import { Haptics, ImpactStyle } from '@capacitor/haptics';
@@ -76,8 +76,8 @@ export const VentasProvider: React.FC<{ children: ReactNode }> = ({ children }) 
 
   const loadVentasHoy = useCallback(async () => {
     if (!comercio || !navigator.onLine) {
-      const locales = await idbGetAll<Venta & { id: string }>('ventas');
-      dispatch({ type: 'SET_VENTAS_HOY', payload: locales });
+      const locales = await idbGetAll<Venta & { id: string; fecha: number }>('ventas');
+      dispatch({ type: 'SET_VENTAS_HOY', payload: ventasLocalesDeHoy(locales) as unknown as Venta[] });
       return;
     }
     const inicioHoy = new Date(); inicioHoy.setHours(0, 0, 0, 0);

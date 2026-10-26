@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { esErrorPermanente } from './outbox';
+import { esErrorPermanente, ventasLocalesDeHoy } from './outbox';
 
 describe('esErrorPermanente (clasificación para cuarentena)', () => {
   it('marca como permanentes los errores de validación/RLS/constraint', () => {
@@ -26,5 +26,28 @@ describe('esErrorPermanente (clasificación para cuarentena)', () => {
   it('es case-insensitive', () => {
     expect(esErrorPermanente('COMERCIO NO AUTORIZADO')).toBe(true);
     expect(esErrorPermanente('Permission Denied')).toBe(true);
+  });
+});
+
+describe('ventasLocalesDeHoy (ventas offline del día)', () => {
+  const base = new Date('2026-10-26T15:00:00'); // hora local fija
+  const ms = (d: string) => new Date(d).getTime();
+
+  it('deja solo las de hoy y descarta otros días', () => {
+    const items = [
+      { id: 'a', fecha: ms('2026-10-26T09:00:00') }, // hoy
+      { id: 'b', fecha: ms('2026-10-25T23:59:00') }, // ayer
+      { id: 'c', fecha: ms('2026-10-26T00:00:00') }, // hoy, arranque del día (incluido)
+      { id: 'd', fecha: ms('2026-10-27T00:00:00') }, // mañana (excluido)
+    ];
+    expect(ventasLocalesDeHoy(items, base).map(v => v.id)).toEqual(['a', 'c']);
+  });
+
+  it('tolera fecha ISO y descarta valores inválidos', () => {
+    const items = [
+      { id: 'a', fecha: '2026-10-26T10:00:00' },
+      { id: 'b', fecha: 'no-es-fecha' },
+    ];
+    expect(ventasLocalesDeHoy(items, base).map(v => v.id)).toEqual(['a']);
   });
 });

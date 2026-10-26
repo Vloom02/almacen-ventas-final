@@ -105,6 +105,9 @@ export async function flushOutbox(): Promise<number> {
         if (item.kind === 'venta')      await syncVentaOffline(item.payload as OfflineVentaPayload);
         if (item.kind === 'anulacion')  await syncAnulacionOffline(item.payload as OfflineAnulacionPayload);
         if (item.kind === 'pago_fiado') await syncPagoOffline(item.payload as OfflinePagoPayload);
+        // La venta ya quedó en el servidor: borrar su copia local para que no siga
+        // contando en "ventas de hoy" offline los días siguientes (store 'ventas').
+        if (item.kind === 'venta') await idbDelete('ventas', (item.payload as OfflineVentaPayload).ventaId);
         await idbDelete('outbox', item.id!);
         processed++;
       } catch (err) {
@@ -188,6 +191,21 @@ export async function cacheCatalogo(productos: unknown[], lotes: unknown[]): Pro
     t.oncomplete = () => res();
     t.onerror = () => rej(t.error);
     t.onabort = () => rej(t.error);
+  });
+}
+
+/**
+ * Ventas locales (offline) que son de HOY según el reloj del dispositivo.
+ * La copia offline guarda `fecha` como epoch ms. Se usa solo sin internet; con
+ * conexión, "ventas de hoy" sale del servidor filtrada por fecha.
+ */
+export function ventasLocalesDeHoy<T extends { fecha: number | string }>(items: T[], ahora: Date = new Date()): T[] {
+  const inicio = new Date(ahora); inicio.setHours(0, 0, 0, 0);
+  const desde = inicio.getTime();
+  const hasta = desde + 24 * 60 * 60 * 1000;
+  return items.filter((v) => {
+    const t = typeof v.fecha === 'number' ? v.fecha : new Date(v.fecha).getTime();
+    return Number.isFinite(t) && t >= desde && t < hasta;
   });
 }
 
