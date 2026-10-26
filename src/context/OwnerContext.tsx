@@ -93,12 +93,12 @@ export const OwnerProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     timerRef.current = setTimeout(() => { setAvisoBloqueo(false); setUnlocked(false); }, total);
   }, [isUnlocked, lockMin]);
 
-  // Arrancar timer al desbloquear
+  // Arrancar timer al desbloquear, y reiniciarlo si el dueño cambia los minutos
+  // (keepAlive cambia con lockMin; antes seguía corriendo con el valor viejo).
   useEffect(() => {
     if (isUnlocked) keepAlive();
     return clearTimer;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isUnlocked]);
+  }, [isUnlocked, keepAlive]);
 
   const setPin = useCallback(async (pin: string) => {
     if (!comercio || pin.length < 4) return false;

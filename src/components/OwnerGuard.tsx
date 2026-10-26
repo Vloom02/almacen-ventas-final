@@ -30,7 +30,7 @@ const OwnerGuard: React.FC<{ children: ReactNode; titulo: string }> = ({ childre
 
   if (isUnlocked) {
     // Cualquier interacción mantiene viva la sesión de dueño
-    return <div onClick={keepAlive} onKeyDown={keepAlive} style={{ height: '100%' }}>{children}</div>;
+    return <div onPointerDown={keepAlive} onKeyDown={keepAlive} style={{ height: '100%' }}>{children}</div>;
   }
 
   // Bloqueado: pantalla de candado + botón para abrir el PinPad
