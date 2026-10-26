@@ -1,4 +1,5 @@
 import React, { Suspense, lazy } from 'react';
+import { LockClosedIcon } from './components/ui/icons';
 import { IonApp, IonRouterOutlet, IonTabs, IonTabBar, IonTabButton, IonLabel, IonSpinner, setupIonicReact } from '@ionic/react';
 import { IonReactRouter } from '@ionic/react-router';
 import { Route, Redirect } from 'react-router-dom';
@@ -13,6 +14,7 @@ import OwnerGuard from './components/OwnerGuard';
 import LoginScreen from './components/LoginScreen';
 import OnboardingVentas from './components/OnboardingVentas';
 import CajeroGate from './components/CajeroGate';
+import { OfertaHuellaPendiente } from './lib/useHuella';
 import VentaPage from './pages/VentaPage'; // eager: es la pantalla de inicio
 // Páginas secundarias: lazy → bundle inicial más liviano / arranque más rápido
 const DashboardPage = lazy(() => import('./pages/DashboardPage'));
@@ -37,9 +39,11 @@ import '@ionic/react/css/padding.css';
 import '@ionic/react/css/flex-utils.css';
 import '@ionic/react/css/display.css';
 // Fuentes self-hosted (offline-first, sin round-trip a Google Fonts al arrancar).
-import '@fontsource-variable/space-grotesk';
-import '@fontsource-variable/jetbrains-mono';
+// Atkinson Hyperlegible: diseñada para baja visión (letras que no se confunden: Il1, O0).
+import '@fontsource-variable/atkinson-hyperlegible-next';
+import '@fontsource-variable/atkinson-hyperlegible-mono';
 import './theme/variables.css';
+import './theme/motion.css';
 
 setupIonicReact();
 
@@ -67,14 +71,14 @@ const Tabs: React.FC = () => (
   <IonTabs>
     <IonRouterOutlet>
       <Route path="/venta"      component={VentaPage}      exact />
-      <Route path="/dashboard"  exact render={() => <Suspense fallback={<PageLoader />}><OwnerGuard titulo="Dashboard"><DashboardPage /></OwnerGuard></Suspense>} />
+      <Route path="/dashboard"  exact render={() => <Suspense fallback={<PageLoader />}><OwnerGuard titulo="Resumen del día"><DashboardPage /></OwnerGuard></Suspense>} />
       <Route path="/stock"      exact render={() => <Suspense fallback={<PageLoader />}><StockPage /></Suspense>} />
-      <Route path="/caja"       exact render={() => <Suspense fallback={<PageLoader />}><OwnerGuard titulo="Cierre de caja"><CierrePage /></OwnerGuard></Suspense>} />
-      <Route path="/historial"  exact render={() => <Suspense fallback={<PageLoader />}><OwnerGuard titulo="Historial"><HistorialPage /></OwnerGuard></Suspense>} />
-      <Route path="/deudas"     exact render={() => <Suspense fallback={<PageLoader />}><OwnerGuard titulo="Deudas"><DeudasPage /></OwnerGuard></Suspense>} />
-      <Route path="/cajeros"    exact render={() => <Suspense fallback={<PageLoader />}><OwnerGuard titulo="Cajeros"><CajerosPage /></OwnerGuard></Suspense>} />
-      <Route path="/estadisticas" exact render={() => <Suspense fallback={<PageLoader />}><OwnerGuard titulo="Estadísticas"><EstadisticasPage /></OwnerGuard></Suspense>} />
-      <Route path="/promos"     exact render={() => <Suspense fallback={<PageLoader />}><OwnerGuard titulo="Promos"><PromosPage /></OwnerGuard></Suspense>} />
+      <Route path="/caja"       exact render={() => <Suspense fallback={<PageLoader />}><OwnerGuard titulo="Caja"><CierrePage /></OwnerGuard></Suspense>} />
+      <Route path="/historial"  exact render={() => <Suspense fallback={<PageLoader />}><OwnerGuard titulo="Ventas anteriores"><HistorialPage /></OwnerGuard></Suspense>} />
+      <Route path="/deudas"     exact render={() => <Suspense fallback={<PageLoader />}><OwnerGuard titulo="Fiado"><DeudasPage /></OwnerGuard></Suspense>} />
+      <Route path="/cajeros"    exact render={() => <Suspense fallback={<PageLoader />}><OwnerGuard titulo="Empleados de caja"><CajerosPage /></OwnerGuard></Suspense>} />
+      <Route path="/estadisticas" exact render={() => <Suspense fallback={<PageLoader />}><OwnerGuard titulo="Lo más vendido"><EstadisticasPage /></OwnerGuard></Suspense>} />
+      <Route path="/promos"     exact render={() => <Suspense fallback={<PageLoader />}><OwnerGuard titulo="Ofertas"><PromosPage /></OwnerGuard></Suspense>} />
       <Route path="/mas"        exact render={() => <Suspense fallback={<PageLoader />}><MasPage /></Suspense>} />
       <Route path="/cerrar-caja" exact render={() => <Suspense fallback={<PageLoader />}><CajeroCierrePage /></Suspense>} />
       <Route path="/caja-turno"  exact render={() => <Suspense fallback={<PageLoader />}><CajaTurnoPage /></Suspense>} />
@@ -85,15 +89,15 @@ const Tabs: React.FC = () => (
     <IonTabBar slot="bottom" style={{ background: 'var(--surface)', borderTop: '1px solid var(--border)' }}>
       <IonTabButton tab="venta" href="/venta">
         <TabIcon Icon={ShoppingCartIcon} />
-        <IonLabel style={{ fontSize: 11 }}>Venta</IonLabel>
+        <IonLabel style={{ fontSize: 15 }}>Vender</IonLabel>
       </IonTabButton>
       <IonTabButton tab="stock" href="/stock">
         <TabIcon Icon={CubeIcon} />
-        <IonLabel style={{ fontSize: 11 }}>Stock</IonLabel>
+        <IonLabel style={{ fontSize: 15 }}>Productos</IonLabel>
       </IonTabButton>
       <IonTabButton tab="mas" href="/mas">
         <TabIcon Icon={EllipsisIcon} />
-        <IonLabel style={{ fontSize: 11 }}>Más</IonLabel>
+        <IonLabel style={{ fontSize: 15 }}>Más</IonLabel>
       </IonTabButton>
     </IonTabBar>
   </IonTabs>
@@ -116,10 +120,14 @@ const Gate: React.FC = () => {
   if (planBloqueado) {
     return (
       <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'var(--bg)', padding: 24, textAlign: 'center' }}>
-        <div style={{ fontSize: 48, marginBottom: 12 }}>⏸️</div>
-        <h2 style={{ fontSize: 20, fontWeight: 700, marginBottom: 8 }}>Cuenta suspendida</h2>
+        <div style={{ marginBottom: 12, color: 'var(--text-2)' }}><LockClosedIcon size={48} /></div>
+        <h2 style={{ fontSize: 20, fontWeight: 700, marginBottom: 8 }}>
+          {comercio?.plan === 'suspendido' ? 'Cuenta suspendida' : 'Tu prueba terminó'}
+        </h2>
         <p style={{ fontSize: 14, color: 'var(--text-2)', maxWidth: 280, lineHeight: 1.6 }}>
-          El plan de {comercio?.nombre} está suspendido. Contactá a soporte para reactivarlo.
+          {comercio?.plan === 'suspendido'
+            ? `El plan de ${comercio?.nombre} está suspendido. Contactá a soporte para reactivarlo.`
+            : `Terminó la prueba gratuita de ${comercio?.nombre}. Tus datos siguen guardados: activá tu suscripción para seguir vendiendo.`}
         </p>
       </div>
     );
@@ -160,6 +168,7 @@ const AppConCajero: React.FC = () => {
         <Tabs />
       </IonReactRouter>
       <OnboardingVentas />
+      <OfertaHuellaPendiente />
     </>
   );
 };

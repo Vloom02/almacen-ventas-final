@@ -17,6 +17,9 @@ interface Props {
  * @capacitor-community/barcode-scanner — está incluido en package.json
  * y se puede integrar fácilmente con un BarcodeScanner.scan() call.
  */
+interface BarcodeDetectorLike { detect(source: HTMLVideoElement): Promise<{ rawValue: string }[]>; }
+type BarcodeDetectorCtor = new (opts: { formats: string[] }) => BarcodeDetectorLike;
+
 const ScannerModal: React.FC<Props> = ({ onCodigoDetectado, onCancel }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [error, setError] = useState<string | null>(null);
@@ -26,7 +29,7 @@ const ScannerModal: React.FC<Props> = ({ onCodigoDetectado, onCancel }) => {
   useEffect(() => {
     let stream: MediaStream | null = null;
     let active = true;
-    let detector: any = null;
+    let detector: BarcodeDetectorLike | null = null;
 
     const start = async () => {
       // Verificar soporte de BarcodeDetector
@@ -47,14 +50,15 @@ const ScannerModal: React.FC<Props> = ({ onCodigoDetectado, onCancel }) => {
               return;
             }
           }
-        } catch (e) {
+        } catch {
           // Si falla la verificación nativa, seguimos e intentamos igual
         }
       }
 
       try {
-        // @ts-ignore - BarcodeDetector aún no está en los tipos estándar
-        detector = new window.BarcodeDetector({
+        // BarcodeDetector aún no está en los tipos estándar del DOM
+        const Ctor = (window as unknown as { BarcodeDetector: BarcodeDetectorCtor }).BarcodeDetector;
+        detector = new Ctor({
           formats: ['ean_13', 'ean_8', 'upc_a', 'upc_e', 'code_128', 'code_39', 'qr_code'],
         });
 
@@ -77,7 +81,7 @@ const ScannerModal: React.FC<Props> = ({ onCodigoDetectado, onCancel }) => {
               onCodigoDetectado(barcodes[0].rawValue);
               return;
             }
-          } catch (e) {
+          } catch {
             // Ignorar errores intermitentes
           }
           if (active) requestAnimationFrame(detect);

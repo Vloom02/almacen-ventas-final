@@ -4,8 +4,8 @@
 // stock MÁS RECIENTE de la nube (aplica delta, no pisa cantidad vieja).
 // ═══════════════════════════════════════════════════════════════════════════
 import { supabase } from './supabase';
-import { OutboxItem, CartItem } from '../types';
-import { payloadVenta } from './ventas-engine';
+import { OutboxItem, CartItem, Lote } from '../types';
+import { payloadVenta, calcularFefo } from './ventas-engine';
 
 const DB_NAME = 'ventas-db';
 const DB_VER  = 1;
@@ -88,7 +88,7 @@ export function esErrorPermanente(msg?: string): boolean {
   if (!msg) return false;
   const m = msg.toLowerCase();
   return ['no pertenece', 'no autorizado', 'permission denied', 'row-level security',
-          'violates', 'duplicate key', 'invalid input', 'constraint', 'inexistente']
+          'violates', 'duplicate key', 'invalid input', 'constraint', 'inexistente', 'inválid']
     .some(p => m.includes(p));
 }
 
@@ -105,6 +105,9 @@ export async function flushOutbox(): Promise<number> {
         if (item.kind === 'venta')      await syncVentaOffline(item.payload as OfflineVentaPayload);
         if (item.kind === 'anulacion')  await syncAnulacionOffline(item.payload as OfflineAnulacionPayload);
         if (item.kind === 'pago_fiado') await syncPagoOffline(item.payload as OfflinePagoPayload);
+        // La venta ya quedó en el servidor: borrar su copia local para que no siga
+        // contando en "ventas de hoy" offline los días siguientes (store 'ventas').
+        if (item.kind === 'venta') await idbDelete('ventas', (item.payload as OfflineVentaPayload).ventaId);
         await idbDelete('outbox', item.id!);
         processed++;
       } catch (err) {
@@ -174,10 +177,56 @@ async function syncPagoOffline(p: OfflinePagoPayload): Promise<void> {
 }
 
 // ─── Cache catálogo + lotes para vender offline ───────────────────────────────
+// Una sola transacción: si la app se cierra a mitad de camino, IndexedDB
+// descarta todo y queda el catálogo anterior (nunca uno vacío o a medias).
 export async function cacheCatalogo(productos: unknown[], lotes: unknown[]): Promise<void> {
-  await idbClear('productos'); await idbClear('lotes');
-  for (const p of productos) await idbPut('productos', p);
-  for (const l of lotes)     await idbPut('lotes', l);
+  await openDB();
+  await new Promise<void>((res, rej) => {
+    const t = db!.transaction(['productos', 'lotes'], 'readwrite');
+    const sp = t.objectStore('productos');
+    const sl = t.objectStore('lotes');
+    sp.clear(); sl.clear();
+    for (const p of productos) sp.put(p);
+    for (const l of lotes)     sl.put(l);
+    t.oncomplete = () => res();
+    t.onerror = () => rej(t.error);
+    t.onabort = () => rej(t.error);
+  });
+}
+
+/**
+ * Descuenta del cache local de lotes lo vendido offline (FEFO, igual que el server),
+ * para que el stock mostrado no quede viejo hasta reconectar. Devuelve solo los
+ * lotes que cambiaron. Al sincronizar, el server recalcula y el cache se reemplaza.
+ */
+export function descontarLotesLocales(lotes: Lote[], cart: CartItem[]): Lote[] {
+  const cambiados: Lote[] = [];
+  for (const item of cart) {
+    const delProducto = lotes
+      .filter(l => l.producto_id === item.productoId && !l.retirado && l.cantidad > 0)
+      .sort((a, b) => (a.fecha_vencimiento ?? '9999').localeCompare(b.fecha_vencimiento ?? '9999'));
+    for (const d of calcularFefo(delProducto, item.qty)) {
+      const lote = delProducto.find(l => l.id === d.loteId)!;
+      lote.cantidad = d.cantidadNueva;
+      if (!cambiados.includes(lote)) cambiados.push(lote);
+    }
+  }
+  return cambiados;
+}
+
+/**
+ * Ventas locales (offline) que son de HOY según el reloj del dispositivo.
+ * La copia offline guarda `fecha` como epoch ms. Se usa solo sin internet; con
+ * conexión, "ventas de hoy" sale del servidor filtrada por fecha.
+ */
+export function ventasLocalesDeHoy<T extends { fecha: number | string }>(items: T[], ahora: Date = new Date()): T[] {
+  const inicio = new Date(ahora); inicio.setHours(0, 0, 0, 0);
+  const desde = inicio.getTime();
+  const hasta = desde + 24 * 60 * 60 * 1000;
+  return items.filter((v) => {
+    const t = typeof v.fecha === 'number' ? v.fecha : new Date(v.fecha).getTime();
+    return Number.isFinite(t) && t >= desde && t < hasta;
+  });
 }
 
 export async function getLocalSetting(k: string): Promise<string> {

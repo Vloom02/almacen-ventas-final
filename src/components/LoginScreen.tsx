@@ -16,22 +16,28 @@ const LoginScreen: React.FC = () => {
   const [comercio, setComercio] = useState('');
   const [codigoInv, setCodigoInv] = useState(''); // código de invitación (empleado)
   const [error, setError]     = useState('');
+  const [info, setInfo]       = useState('');
   const [loading, setLoading] = useState(false);
 
   const conCodigo = codigoInv.trim().length > 0;
 
   const handleSubmit = async () => {
-    setError(''); setLoading(true);
+    setError(''); setInfo(''); setLoading(true);
     const err = mode === 'login'
       ? await login(email.trim(), password)
       : await register(email.trim(), password, nombre.trim(), comercio.trim(), codigoInv.trim() || undefined);
     setLoading(false);
-    if (err) setError(err);
+    if (err) { setError(err); return; }
+    if (mode === 'register') {
+      // Supabase pide confirmar el email: sin este aviso el usuario quedaba en el formulario sin saber qué pasó.
+      setInfo(`¡Cuenta creada! Te mandamos un email a ${email.trim()}. Abrí el link para confirmarla y después ingresá.`);
+      setMode('login'); setPass('');
+    }
   };
 
   const valid = mode === 'login'
     ? email.includes('@') && password.length >= 6
-    : email.includes('@') && password.length >= 6 && nombre.trim() && (conCodigo || comercio.trim());
+    : email.includes('@') && password.length >= 8 && nombre.trim() && (conCodigo || comercio.trim());
 
   return (
     <IonContent style={{ '--background': 'var(--bg)' } as React.CSSProperties}>
@@ -53,14 +59,21 @@ const LoginScreen: React.FC = () => {
               )}
               <Input label="Código de invitación (opcional)" value={codigoInv} onChange={v => setCodigoInv(v.toUpperCase())} placeholder="EJ: AB23CD45" />
               {conCodigo && (
-                <p style={{ fontSize: 12, color: 'var(--text-2)', margin: '-4px 0 12px', lineHeight: 1.5 }}>
+                <p style={{ fontSize: 13, color: 'var(--text-2)', margin: '-4px 0 12px', lineHeight: 1.5 }}>
                   Te vas a unir como empleado al comercio del dueño que te invitó.
                 </p>
               )}
             </>
           )}
           <Input label="Email" value={email} onChange={setEmail} type="email" placeholder="tu@email.com" inputMode="email" />
-          <Input label="Contraseña" value={password} onChange={setPass} type="password" placeholder="Mínimo 6 caracteres" />
+          <Input label="Contraseña" value={password} onChange={setPass} type="password" placeholder={mode === 'login' ? 'Tu contraseña' : 'Mínimo 8 caracteres'}
+            onEnter={() => { if (valid && !loading) handleSubmit(); }} />
+
+          {info && (
+            <div style={{ background: 'var(--color-primary-bg)', border: '1px solid var(--color-primary-border)', borderRadius: 'var(--radius)', padding: '10px 14px', fontSize: 13, color: 'var(--color-primary-dark)', marginBottom: 12 }}>
+              {info}
+            </div>
+          )}
 
           {error && (
             <div style={{ background: 'var(--color-danger-bg)', border: '1px solid var(--color-danger-border)', borderRadius: 'var(--radius)', padding: '10px 14px', fontSize: 13, color: 'var(--color-danger-dark)', marginBottom: 12 }}>
@@ -73,8 +86,8 @@ const LoginScreen: React.FC = () => {
           </Button>
 
           <button
-            onClick={() => { setMode(mode === 'login' ? 'register' : 'login'); setError(''); }}
-            style={{ width: '100%', marginTop: 16, background: 'none', border: 'none', fontSize: 14, color: 'var(--color-primary)', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600 }}
+            onClick={() => { setMode(mode === 'login' ? 'register' : 'login'); setError(''); setInfo(''); }}
+            style={{ width: '100%', marginTop: 16, background: 'none', border: 'none', fontSize: 16, minHeight: 48, color: 'var(--color-primary-dark)', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 700 }}
           >
             {mode === 'login' ? '¿No tenés cuenta? Registrate' : '¿Ya tenés cuenta? Ingresá'}
           </button>

@@ -42,7 +42,7 @@ export function supabaseErrorMsg(err: { message?: string } | null): string {
   if (m.includes('invalid login'))     return 'Email o contraseña incorrectos';
   if (m.includes('user already'))      return 'Ya existe una cuenta con ese email';
   if (m.includes('email not confirmed')) return 'Confirmá tu email antes de ingresar';
-  if (m.includes('password'))          return 'La contraseña debe tener al menos 6 caracteres';
+  if (m.includes('password'))          return 'La contraseña es muy corta (mínimo 8 caracteres)';
   if (m.includes('network') || m.includes('fetch')) return 'Sin conexión. Verificá tu internet';
   return err.message;
 }

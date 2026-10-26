@@ -3,7 +3,8 @@
 // - El PIN se hashea SERVER-SIDE en bcrypt (RPC configurar_pin) y se verifica
 //   server-side con lockout de intentos (RPC verificar_pin, migración 4).
 // - Si no hay PIN configurado, el dueño lo crea la primera vez.
-// - Una vez desbloqueado, se re-bloquea solo tras 5 min de inactividad.
+// - Una vez desbloqueado, se re-bloquea tras N min sin uso (15 por defecto), avisando
+//   30 s antes con un botón para seguir (WCAG 2.2.1: poder extender el tiempo).
 // ═══════════════════════════════════════════════════════════════════════════
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef, ReactNode } from 'react';
 import { supabase } from '../lib/supabase';
@@ -16,10 +17,11 @@ import {
 // el dueño (preferencia local del dispositivo); antes era fijo en 5 min y el
 // dueño terminaba tipeando el PIN decenas de veces por día.
 const LOCK_KEY = 'ventas:pin-lock-min';
-export const OPCIONES_LOCK = [5, 15, 30, 60];
+export const OPCIONES_LOCK = [5, 15, 30, 60, 120];
+const AVISO_SEG = 30; // aviso antes de bloquear (WCAG 2.2.1 pide al menos 20 s)
 const leerLockMin = (): number => {
-  const v = parseInt(localStorage.getItem(LOCK_KEY) ?? '5', 10);
-  return OPCIONES_LOCK.includes(v) ? v : 5;
+  const v = parseInt(localStorage.getItem(LOCK_KEY) ?? '15', 10);
+  return OPCIONES_LOCK.includes(v) ? v : 15;
 };
 
 interface OwnerCtx {
@@ -32,6 +34,7 @@ interface OwnerCtx {
   tryUnlock: (pin: string) => Promise<boolean>;   // verificar PIN e ingresar a modo dueño
   lock:      () => void;                           // salir de modo dueño
   keepAlive: () => void;                           // resetea el timer de inactividad
+  avisoBloqueo: boolean;                           // faltan AVISO_SEG para bloquearse
 }
 
 const Ctx = createContext<OwnerCtx | undefined>(undefined);
@@ -43,6 +46,8 @@ export const OwnerProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   const [loading, setLoading]     = useState(true);
   const [lockMin, setLockMinState] = useState(leerLockMin);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const avisoRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [avisoBloqueo, setAvisoBloqueo] = useState(false);
 
   const setLockMin = useCallback((m: number) => {
     localStorage.setItem(LOCK_KEY, String(m));
@@ -69,7 +74,11 @@ export const OwnerProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     })();
   }, [comercio]);
 
-  const clearTimer = () => { if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null; } };
+  const clearTimer = () => {
+    if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null; }
+    if (avisoRef.current) { clearTimeout(avisoRef.current); avisoRef.current = null; }
+    setAvisoBloqueo(false);
+  };
 
   const lock = useCallback(() => {
     clearTimer();
@@ -79,15 +88,17 @@ export const OwnerProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   const keepAlive = useCallback(() => {
     if (!isUnlocked) return;
     clearTimer();
-    timerRef.current = setTimeout(() => setUnlocked(false), lockMin * 60 * 1000);
+    const total = lockMin * 60 * 1000;
+    avisoRef.current = setTimeout(() => setAvisoBloqueo(true), total - AVISO_SEG * 1000);
+    timerRef.current = setTimeout(() => { setAvisoBloqueo(false); setUnlocked(false); }, total);
   }, [isUnlocked, lockMin]);
 
-  // Arrancar timer al desbloquear
+  // Arrancar timer al desbloquear, y reiniciarlo si el dueño cambia los minutos
+  // (keepAlive cambia con lockMin; antes seguía corriendo con el valor viejo).
   useEffect(() => {
     if (isUnlocked) keepAlive();
     return clearTimer;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isUnlocked]);
+  }, [isUnlocked, keepAlive]);
 
   const setPin = useCallback(async (pin: string) => {
     if (!comercio || pin.length < 4) return false;
@@ -141,8 +152,19 @@ export const OwnerProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   }, [comercio, unlockOffline]);
 
   return (
-    <Ctx.Provider value={{ hasPin, isUnlocked, loading, lockMin, setLockMin, setPin, tryUnlock, lock, keepAlive }}>
+    <Ctx.Provider value={{ hasPin, isUnlocked, loading, lockMin, setLockMin, setPin, tryUnlock, lock, keepAlive, avisoBloqueo }}>
       {children}
+      {isUnlocked && avisoBloqueo && (
+        <div role="alertdialog" aria-live="assertive" className="anim-subir"
+          style={{ position: 'fixed', left: 12, right: 12, bottom: 'calc(84px + var(--sab, env(safe-area-inset-bottom)))', zIndex: 2000, padding: 16, borderRadius: 'var(--radius-lg)', background: 'var(--surface)', border: '2px solid var(--color-primary)', boxShadow: 'var(--shadow-lg)' }}>
+          <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 4 }}>Se va a bloquear en 30 segundos</div>
+          <div style={{ fontSize: 16, color: 'var(--text-2)', marginBottom: 12 }}>Por seguridad, las opciones del dueño se cierran si no se usan.</div>
+          <button type="button" onClick={keepAlive} className="pressable"
+            style={{ width: '100%', minHeight: 52, borderRadius: 'var(--radius)', border: 'none', background: 'var(--color-primary)', color: '#2a1a00', fontSize: 18, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
+            Seguir usando
+          </button>
+        </div>
+      )}
     </Ctx.Provider>
   );
 };

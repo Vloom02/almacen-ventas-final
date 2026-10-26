@@ -11,7 +11,7 @@ import {
 } from '../lib/ventas-engine';
 import {
   openDB, enqueueOutbox, flushOutbox, cacheCatalogo, idbGetAll,
-  idbPut, OfflineVentaPayload, reintentarBloqueados,
+  idbPut, OfflineVentaPayload, reintentarBloqueados, ventasLocalesDeHoy, descontarLotesLocales,
 } from '../lib/outbox';
 import { chequearVencimientos } from '../lib/vencimientos';
 import { Haptics, ImpactStyle } from '@capacitor/haptics';
@@ -19,8 +19,11 @@ import { Haptics, ImpactStyle } from '@capacitor/haptics';
 async function hapticOk()  { try { await Haptics.impact({ style: ImpactStyle.Medium }); } catch { /* no-op */ } }
 async function hapticTap() { try { await Haptics.impact({ style: ImpactStyle.Light });  } catch { /* no-op */ } }
 
-export const formatMoney = (n: number) =>
-  '$' + Number(n).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+export const formatMoney = (n: number) => {
+  const v = Number(n);
+  const d = Number.isInteger(Math.round(v * 100) / 100) ? 0 : 2; // "$1.000" se lee mejor que "$1.000,00"
+  return '$' + v.toLocaleString('es-AR', { minimumFractionDigits: d, maximumFractionDigits: 2 });
+};
 
 interface VentasState {
   cart: CartItem[];
@@ -73,8 +76,8 @@ export const VentasProvider: React.FC<{ children: ReactNode }> = ({ children }) 
 
   const loadVentasHoy = useCallback(async () => {
     if (!comercio || !navigator.onLine) {
-      const locales = await idbGetAll<Venta & { id: string }>('ventas');
-      dispatch({ type: 'SET_VENTAS_HOY', payload: locales });
+      const locales = await idbGetAll<Venta & { id: string; fecha: number }>('ventas');
+      dispatch({ type: 'SET_VENTAS_HOY', payload: ventasLocalesDeHoy(locales) as unknown as Venta[] });
       return;
     }
     const inicioHoy = new Date(); inicioHoy.setHours(0, 0, 0, 0);
@@ -261,6 +264,9 @@ export const VentasProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       };
       await idbPut('ventas', { id: ventaId, ...payload });
       await enqueueOutbox('venta', payload);
+      // Reflejar lo vendido en el stock local (si no, se sigue mostrando el de antes).
+      for (const l of descontarLotesLocales(await idbGetAll<Lote>('lotes'), state.cart)) await idbPut('lotes', l);
+      lotesCacheRef.current = {};
       const out = await idbGetAll('outbox');
       dispatch({ type: 'SET_OUTBOX', payload: out.length });
       vaciar(); hapticOk();

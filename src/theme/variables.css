@@ -1,4 +1,4 @@
-/* Fonts: Space Grotesk + JetBrains Mono, self-hosted vía @fontsource-variable
+/* Fonts: Atkinson Hyperlegible Next + Mono, self-hosted vía @fontsource-variable
    (importadas en App.tsx). Antes venían de Google Fonts, que fallaba offline. */
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -53,17 +53,17 @@
 
   /* ── Semantic colors ────────────────────────────── */
   --color-primary:      var(--amber-500);
-  --color-primary-dark: var(--amber-600);
+  --color-primary-dark: #8f570d;  /* ámbar oscuro: legible como texto sobre crema (4.8:1) */
   --color-primary-bg:   rgba(255,176,46,.12);
   --color-primary-border: rgba(255,176,46,.42);
 
-  --color-danger:       #ff5d4c;
+  --color-danger:       #b3261e;   /* claro: 6.5:1 (el #ff5d4c daba 2.6:1 sobre crema) */
   --color-danger-dark:  #e0402f;
   --color-danger-bg:    rgba(255,93,76,.12);
   --color-danger-border:rgba(255,93,76,.4);
 
   --color-warning:      #ffce5c;
-  --color-warning-dark: #e9b13a;
+  --color-warning-dark: #8a5a00;   /* claro: 5.9:1 (el #e9b13a daba 1.9:1) */
   --color-warning-bg:   rgba(255,206,92,.12);
   --color-warning-border:rgba(255,206,92,.38);
 
@@ -86,8 +86,8 @@
 
   /* ── Text ───────────────────────────────────────── */
   --text:        #211b12;
-  --text-2:      #6f6757;
-  --text-3:      #9a9081;
+  --text-2:      #554f43;
+  --text-3:      #746c61;
   --text-invert: #fbfaf6;
 
   /* grilla + scanline (claro: trazos oscuros sutiles) */
@@ -121,8 +121,8 @@
   --glow-strong: 0 0 16px rgba(255,176,46,.45);
 
   /* ── Typography ─────────────────────────────────── */
-  --font-sans: 'Space Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+  --font-sans: 'Atkinson Hyperlegible Next Variable', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-mono: 'Atkinson Hyperlegible Mono Variable', ui-monospace, monospace;
 
   /* ── Transitions ────────────────────────────────── */
   --transition-fast: 120ms ease;
@@ -162,8 +162,8 @@
   --border-strong: #394442;
 
   --text:        #e9f1ec;
-  --text-2:      #7f8c87;
-  --text-3:      #586461;
+  --text-2:      #9ba5a1;
+  --text-3:      #838d8b;
   --text-invert: #0b0d0c;
 
   /* oro brillante para los números sobre negro */
@@ -172,6 +172,9 @@
   --color-accent-border:rgba(232,196,95,.34);
 
   --color-primary-bg:   rgba(255,176,46,.12);
+  --color-primary-dark: var(--amber-600);  /* en oscuro, el ámbar claro es el legible */
+  --color-danger:       #ff5d4c;
+  --color-warning-dark: #e9b13a;
   --color-danger-bg:    rgba(255,93,76,.12);
   --color-warning-bg:   rgba(255,206,92,.12);
   --color-info-bg:      rgba(79,210,232,.1);
@@ -196,30 +199,21 @@ body {
   font-family: var(--font-sans);
   background: var(--bg);
   color: var(--text);
-  font-size: 15px;
+  font-size: 16px;
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
-  /* grilla de puntos sutil, look de panel técnico (cambia por tema) */
-  background-image: radial-gradient(var(--grid-dot) 1px, transparent 1px);
-  background-size: 22px 22px;
 }
+/* Sin grilla de puntos ni scanlines: fondo liso, se lee mejor (público mayor). */
 
-/* scanlines globales (overlay finito, cambia por tema) */
-body::after {
-  content: "";
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  z-index: 9999;
-  background: linear-gradient(var(--scanline) 50%, transparent 50%);
-  background-size: 100% 4px;
-  opacity: .55;
+/* Android "quitar animaciones": se respeta en toda la app. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
 }
 
 /* Números y montos en mono, con leve glow ámbar */
 .mono, [class*="mono"] { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
 
-/* Títulos en Space Grotesk con leve tracking de panel */
+/* Títulos con leve tracking de panel */
 h1, h2, h3, h4 { font-family: var(--font-sans); letter-spacing: .01em; }
 
 /* ── Animations ─────────────────────────────────────────────────────────────── */
@@ -240,9 +234,12 @@ h1, h2, h3, h4 { font-family: var(--font-sans); letter-spacing: .01em; }
 .led { width:8px; height:8px; border-radius:50%; background:var(--lime); box-shadow:0 0 8px var(--lime); animation:blink 2s infinite; display:inline-block; }
 
 /* ── Micro-interaction: press hunde la sombra dura ──────────────────────────── */
-.pressable:active { transform: translate(3px,3px); transition: transform 70ms ease; }
+/* .pressable: ver theme/motion.css */
 
 /* ── Scrollbar ───────────────────────────────────────────────────────────────── */
 ::-webkit-scrollbar { width:6px; height:6px; }
 ::-webkit-scrollbar-track { background:transparent; }
 ::-webkit-scrollbar-thumb { background:var(--border-strong); border-radius:var(--radius-full); }
+
+/* Pestaña activa: el ámbar claro (--ion-color-primary) sobre crema no se leía (1.8:1). */
+ion-tab-button { --color-selected: var(--color-primary-dark); --color: var(--text-2); }
